@@ -1,113 +1,169 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Filter, Edit, Trash2, Package } from 'lucide-react';
-import { Product } from '@/types';
+import { Plus, Search, Edit, Trash2, Package, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-// Mock products data
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Peek Freans Rio',
-    category: 'Biscuits',
-    price: 120,
-    costPrice: 95,
-    stockQuantity: 250,
-    discount: 0,
-    sku: 'PF-RIO-001',
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    name: 'LU Prince',
-    category: 'Biscuits',
-    price: 80,
-    costPrice: 65,
-    stockQuantity: 180,
-    discount: 5,
-    sku: 'LU-PRI-002',
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    name: 'Candyland Eclairs',
-    category: 'Toffees',
-    price: 150,
-    costPrice: 120,
-    stockQuantity: 45,
-    discount: 0,
-    sku: 'CL-ECL-003',
-    createdAt: new Date(),
-  },
-  {
-    id: '4',
-    name: 'Hilal Ding Dong',
-    category: 'Toffees',
-    price: 200,
-    costPrice: 160,
-    stockQuantity: 30,
-    discount: 10,
-    sku: 'HL-DD-004',
-    createdAt: new Date(),
-  },
-  {
-    id: '5',
-    name: 'Gala Biscuits',
-    category: 'Biscuits',
-    price: 50,
-    costPrice: 38,
-    stockQuantity: 500,
-    discount: 0,
-    sku: 'GL-BSC-005',
-    createdAt: new Date(),
-  },
-  {
-    id: '6',
-    name: 'Sooper Cookies',
-    category: 'Biscuits',
-    price: 100,
-    costPrice: 80,
-    stockQuantity: 320,
-    discount: 0,
-    sku: 'SP-COK-006',
-    createdAt: new Date(),
-  },
-  {
-    id: '7',
-    name: 'Refreshers Candy',
-    category: 'Candies',
-    price: 180,
-    costPrice: 145,
-    stockQuantity: 200,
-    discount: 5,
-    sku: 'RF-CND-007',
-    createdAt: new Date(),
-  },
-  {
-    id: '8',
-    name: 'Nimko Mix',
-    category: 'Snacks',
-    price: 60,
-    costPrice: 45,
-    stockQuantity: 150,
-    discount: 0,
-    sku: 'NK-MIX-008',
-    createdAt: new Date(),
-  },
-];
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  stock_quantity: number;
+  discount_percentage: number;
+  is_active: boolean;
+  created_at: string;
+}
 
-const categories = ['All', 'Biscuits', 'Toffees', 'Candies', 'Snacks'];
+const categories = ['All', 'Biscuits', 'Toffees', 'Candies', 'Snacks', 'Beverages', 'Other'];
 
 const Products: React.FC = () => {
   const { isAdmin } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    price: '',
+    stock_quantity: '',
+    discount_percentage: '0',
+  });
 
-  const filteredProducts = mockProducts.filter((product) => {
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error: any) {
+      toast.error('Failed to load products: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.category || !formData.price) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('products').insert({
+        name: formData.name.trim(),
+        category: formData.category,
+        price: parseFloat(formData.price),
+        stock_quantity: parseInt(formData.stock_quantity) || 0,
+        discount_percentage: parseFloat(formData.discount_percentage) || 0,
+      });
+
+      if (error) throw error;
+
+      toast.success('Product added successfully');
+      setShowAddModal(false);
+      resetForm();
+      fetchProducts();
+    } catch (error: any) {
+      toast.error('Failed to add product: ' + error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct || !formData.name || !formData.category || !formData.price) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: formData.name.trim(),
+          category: formData.category,
+          price: parseFloat(formData.price),
+          stock_quantity: parseInt(formData.stock_quantity) || 0,
+          discount_percentage: parseFloat(formData.discount_percentage) || 0,
+        })
+        .eq('id', editingProduct.id);
+
+      if (error) throw error;
+
+      toast.success('Product updated successfully');
+      setShowEditModal(false);
+      setEditingProduct(null);
+      resetForm();
+      fetchProducts();
+    } catch (error: any) {
+      toast.error('Failed to update product: ' + error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async (product: Product) => {
+    if (!confirm(`Are you sure you want to delete "${product.name}"?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      toast.success('Product deleted successfully');
+      fetchProducts();
+    } catch (error: any) {
+      toast.error('Failed to delete product: ' + error.message);
+    }
+  };
+
+  const openEditModal = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      category: product.category,
+      price: product.price.toString(),
+      stock_quantity: product.stock_quantity?.toString() || '0',
+      discount_percentage: product.discount_percentage?.toString() || '0',
+    });
+    setShowEditModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      category: '',
+      price: '',
+      stock_quantity: '',
+      discount_percentage: '0',
+    });
+  };
+
+  const filteredProducts = products.filter((product) => {
     const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+      product.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory =
       selectedCategory === 'All' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -126,7 +182,7 @@ const Products: React.FC = () => {
           </div>
           <div>
             <p className="font-medium text-foreground">{item.name}</p>
-            <p className="text-xs text-muted-foreground">{item.sku}</p>
+            <p className="text-xs text-muted-foreground">{item.category}</p>
           </div>
         </div>
       ),
@@ -138,53 +194,40 @@ const Products: React.FC = () => {
       render: (item: Product) => (
         <div>
           <p className="font-medium">{formatCurrency(item.price)}</p>
-          {item.discount > 0 && (
-            <p className="text-xs text-success">-{item.discount}% discount</p>
+          {item.discount_percentage > 0 && (
+            <p className="text-xs text-success">-{item.discount_percentage}% discount</p>
           )}
         </div>
       ),
     },
     {
-      key: 'stockQuantity',
+      key: 'stock_quantity',
       header: 'Stock',
       render: (item: Product) => (
         <span
           className={
-            item.stockQuantity < 50
+            item.stock_quantity < 50
               ? 'badge-destructive'
-              : item.stockQuantity < 100
+              : item.stock_quantity < 100
               ? 'badge-pending'
               : 'badge-success'
           }
         >
-          {item.stockQuantity} units
+          {item.stock_quantity} units
         </span>
       ),
     },
     ...(isAdmin
       ? [
           {
-            key: 'costPrice',
-            header: 'Cost',
-            render: (item: Product) => formatCurrency(item.costPrice),
-          },
-          {
-            key: 'profit',
-            header: 'Margin',
-            render: (item: Product) => {
-              const margin = ((item.price - item.costPrice) / item.price) * 100;
-              return <span className="text-success">{margin.toFixed(1)}%</span>;
-            },
-          },
-          {
             key: 'actions',
             header: 'Actions',
             render: (item: Product) => (
               <div className="flex gap-2">
-                <button className="rounded-lg p-2 hover:bg-muted">
+                <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted">
                   <Edit className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <button className="rounded-lg p-2 hover:bg-destructive/10">
+                <button onClick={() => handleDeleteProduct(item)} className="rounded-lg p-2 hover:bg-destructive/10">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </button>
               </div>
@@ -193,6 +236,14 @@ const Products: React.FC = () => {
         ]
       : []),
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -225,13 +276,13 @@ const Products: React.FC = () => {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search products by name or SKU..."
+            placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="input-field pl-10"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {categories.map((category) => (
             <button
               key={category}
@@ -252,28 +303,27 @@ const Products: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Products</p>
-          <p className="mt-1 text-2xl font-bold">{mockProducts.length}</p>
+          <p className="mt-1 text-2xl font-bold">{products.length}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Stock Value</p>
           <p className="mt-1 text-2xl font-bold">
             {formatCurrency(
-              mockProducts.reduce(
-                (acc, p) => acc + p.price * p.stockQuantity,
-                0
-              )
+              products.reduce((acc, p) => acc + p.price * p.stock_quantity, 0)
             )}
           </p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Low Stock Items</p>
           <p className="mt-1 text-2xl font-bold text-warning">
-            {mockProducts.filter((p) => p.stockQuantity < 50).length}
+            {products.filter((p) => p.stock_quantity < 50).length}
           </p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Categories</p>
-          <p className="mt-1 text-2xl font-bold">{categories.length - 1}</p>
+          <p className="mt-1 text-2xl font-bold">
+            {new Set(products.map(p => p.category)).size}
+          </p>
         </div>
       </div>
 
@@ -291,99 +341,177 @@ const Products: React.FC = () => {
           <div className="w-full max-w-lg rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
             <h2 className="text-xl font-bold text-foreground">Add New Product</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Fill in the details to add a new product to inventory
+              Fill in the details to add a new product
             </p>
 
-            <form className="mt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Product Name
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g., Peek Freans Rio"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">SKU</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g., PF-RIO-001"
-                  />
-                </div>
+            <form onSubmit={handleAddProduct} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g., Peek Freans Rio"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Category</label>
-                <select className="input-field">
+                <label className="mb-1.5 block text-sm font-medium">Category *</label>
+                <select
+                  className="input-field"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  disabled={submitting}
+                >
                   <option value="">Select category</option>
                   {categories.slice(1).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Selling Price
-                  </label>
+                  <label className="mb-1.5 block text-sm font-medium">Price *</label>
                   <input
                     type="number"
                     className="input-field"
                     placeholder="0"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    disabled={submitting}
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Cost Price
-                  </label>
+                  <label className="mb-1.5 block text-sm font-medium">Stock Qty</label>
                   <input
                     type="number"
                     className="input-field"
                     placeholder="0"
+                    value={formData.stock_quantity}
+                    onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                    disabled={submitting}
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Stock Qty
-                  </label>
+                  <label className="mb-1.5 block text-sm font-medium">Discount %</label>
                   <input
                     type="number"
                     className="input-field"
                     placeholder="0"
+                    min="0"
+                    max="100"
+                    value={formData.discount_percentage}
+                    onChange={(e) => setFormData({ ...formData, discount_percentage: e.target.value })}
+                    disabled={submitting}
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  Discount (%)
-                </label>
-                <input
-                  type="number"
-                  className="input-field"
-                  placeholder="0"
-                  min="0"
-                  max="100"
-                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => { setShowAddModal(false); resetForm(); }}
                   className="btn-secondary"
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Add Product
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
+          <div className="w-full max-w-lg rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
+            <h2 className="text-xl font-bold text-foreground">Edit Product</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Update product details
+            </p>
+
+            <form onSubmit={handleEditProduct} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Category *</label>
+                <select
+                  className="input-field"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  disabled={submitting}
+                >
+                  <option value="">Select category</option>
+                  {categories.slice(1).map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Price *</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Stock Qty</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={formData.stock_quantity}
+                    onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Discount %</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    min="0"
+                    max="100"
+                    value={formData.discount_percentage}
+                    onChange={(e) => setFormData({ ...formData, discount_percentage: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingProduct(null); resetForm(); }}
+                  className="btn-secondary"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Update Product
                 </button>
               </div>
             </form>
