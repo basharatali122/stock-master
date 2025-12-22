@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, RotateCcw, Loader2, X } from 'lucide-react';
+import { Plus, Search, Eye, RotateCcw, Loader2, X, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { printContent, formatCurrencyForPrint, getStatusBadgeClass } from '@/lib/print';
 
 interface Return {
   id: string;
@@ -144,6 +145,70 @@ const Returns: React.FC = () => {
     setShowViewModal(true);
   };
 
+  const printReturn = (ret: Return) => {
+    const content = `
+      <div class="header">
+        <h1>AR Traders</h1>
+        <p>Return Receipt</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Return ID:</span><span class="info-value">${ret.id.slice(0, 8)}</span></div>
+        <div class="info-item"><span class="info-label">Date:</span><span class="info-value">${new Date(ret.created_at).toLocaleDateString()}</span></div>
+        <div class="info-item"><span class="info-label">Shop:</span><span class="info-value">${ret.shops?.name || 'N/A'}</span></div>
+        <div class="info-item"><span class="info-label">Processed By:</span><span class="info-value">${ret.booker_profile?.full_name || 'N/A'}</span></div>
+        <div class="info-item"><span class="info-label">Product:</span><span class="info-value">${ret.products?.name || 'N/A'}</span></div>
+        <div class="info-item"><span class="info-label">Quantity:</span><span class="info-value">${ret.quantity}</span></div>
+        <div class="info-item"><span class="info-label">Reason:</span><span class="info-value">${ret.reason || 'N/A'}</span></div>
+        <div class="info-item"><span class="info-label">Status:</span><span class="badge ${getStatusBadgeClass(ret.status)}">${ret.status}</span></div>
+      </div>
+      <div class="summary">
+        <div class="summary-row total"><span>Return Value:</span><span>${formatCurrencyForPrint((ret.products?.price || 0) * ret.quantity)}</span></div>
+      </div>
+    `;
+    printContent(content, 'Return Receipt');
+  };
+
+  const printAllReturns = () => {
+    const returnsHtml = filteredReturns.map(ret => `
+      <tr>
+        <td>${ret.id.slice(0, 8)}</td>
+        <td>${ret.shops?.name || 'N/A'}</td>
+        <td>${ret.products?.name || 'N/A'}</td>
+        <td>${ret.quantity}</td>
+        <td>${ret.booker_profile?.full_name || 'N/A'}</td>
+        <td>${formatCurrencyForPrint((ret.products?.price || 0) * ret.quantity)}</td>
+        <td><span class="badge ${getStatusBadgeClass(ret.status)}">${ret.status}</span></td>
+      </tr>
+    `).join('');
+
+    const content = `
+      <div class="header">
+        <h1>AR Traders</h1>
+        <p>Returns Report</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Total Returns:</span><span class="info-value">${filteredReturns.length}</span></div>
+        <div class="info-item"><span class="info-label">Total Return Value:</span><span class="info-value">${formatCurrencyForPrint(totalReturnsValue)}</span></div>
+        <div class="info-item"><span class="info-label">Pending Returns:</span><span class="info-value">${returns.filter(r => r.status === 'pending').length}</span></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Shop</th>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Processed By</th>
+            <th>Value</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>${returnsHtml}</tbody>
+      </table>
+    `;
+    printContent(content, 'Returns Report');
+  };
+
   const filteredReturns = returns.filter(
     (ret) =>
       ret.shops?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -198,9 +263,14 @@ const Returns: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (item: Return) => (
-        <button onClick={() => viewReturn(item)} className="rounded-lg p-2 hover:bg-muted">
-          <Eye className="h-4 w-4 text-muted-foreground" />
-        </button>
+        <div className="flex gap-1">
+          <button onClick={() => viewReturn(item)} className="rounded-lg p-2 hover:bg-muted" title="View">
+            <Eye className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <button onClick={() => printReturn(item)} className="rounded-lg p-2 hover:bg-muted" title="Print">
+            <Printer className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -221,10 +291,16 @@ const Returns: React.FC = () => {
             <h1 className="page-title">Product Returns</h1>
             <p className="page-subtitle">Track and manage product returns from shops</p>
           </div>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            New Return
-          </button>
+          <div className="flex gap-2">
+            <button onClick={printAllReturns} className="btn-secondary">
+              <Printer className="mr-2 h-4 w-4" />
+              Print Report
+            </button>
+            <button onClick={() => setShowAddModal(true)} className="btn-primary">
+              <Plus className="mr-2 h-4 w-4" />
+              New Return
+            </button>
+          </div>
         </div>
       </div>
 

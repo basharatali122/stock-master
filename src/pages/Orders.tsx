@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, ShoppingCart, Loader2, X } from 'lucide-react';
+import { Plus, Search, Eye, ShoppingCart, Loader2, X, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { printContent, formatCurrencyForPrint, getStatusBadgeClass } from '@/lib/print';
 
 interface OrderItem {
   id: string;
@@ -256,6 +257,94 @@ const Orders: React.FC = () => {
     setShowViewModal(true);
   };
 
+  const printOrder = (order: Order) => {
+    const itemsHtml = order.order_items?.map(item => `
+      <tr>
+        <td>${item.products?.name || 'N/A'}</td>
+        <td>${item.quantity}</td>
+        <td>${formatCurrencyForPrint(item.unit_price)}</td>
+        <td>${item.discount_applied || 0}%</td>
+        <td>${formatCurrencyForPrint(item.total_price)}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5">No items</td></tr>';
+
+    const content = `
+      <div class="header">
+        <h1>AR Traders</h1>
+        <p>Order Invoice</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Order Number:</span><span class="info-value">${order.order_number}</span></div>
+        <div class="info-item"><span class="info-label">Date:</span><span class="info-value">${new Date(order.created_at).toLocaleDateString()}</span></div>
+        <div class="info-item"><span class="info-label">Shop:</span><span class="info-value">${order.shops?.name || 'N/A'}</span></div>
+        <div class="info-item"><span class="info-label">Route:</span><span class="info-value">${order.shops?.routes?.name || 'N/A'}</span></div>
+        <div class="info-item"><span class="info-label">Order Booker:</span><span class="info-value">${order.booker_profile?.full_name || 'N/A'}</span></div>
+        <div class="info-item"><span class="info-label">Status:</span><span class="badge ${getStatusBadgeClass(order.status)}">${order.status}</span></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Discount</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>${itemsHtml}</tbody>
+      </table>
+      <div class="summary">
+        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
+        <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>
+        <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(order.total_amount - order.paid_amount)}</span></div>
+        <div class="summary-row total"><span>Total:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
+      </div>
+    `;
+    printContent(content, `Order ${order.order_number}`);
+  };
+
+  const printAllOrders = () => {
+    const ordersHtml = filteredOrders.map(order => `
+      <tr>
+        <td>${order.order_number}</td>
+        <td>${order.shops?.name || 'N/A'}</td>
+        <td>${order.booker_profile?.full_name || 'N/A'}</td>
+        <td>${formatCurrencyForPrint(order.total_amount)}</td>
+        <td>${formatCurrencyForPrint(order.paid_amount)}</td>
+        <td><span class="badge ${getStatusBadgeClass(order.status)}">${order.status}</span></td>
+        <td><span class="badge ${getStatusBadgeClass(order.payment_status)}">${order.payment_status}</span></td>
+      </tr>
+    `).join('');
+
+    const content = `
+      <div class="header">
+        <h1>AR Traders</h1>
+        <p>Orders Report</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Total Orders:</span><span class="info-value">${filteredOrders.length}</span></div>
+        <div class="info-item"><span class="info-label">Total Sales:</span><span class="info-value">${formatCurrencyForPrint(totalSales)}</span></div>
+        <div class="info-item"><span class="info-label">Cash Received:</span><span class="info-value">${formatCurrencyForPrint(totalPaid)}</span></div>
+        <div class="info-item"><span class="info-label">Credit/Pending:</span><span class="info-value">${formatCurrencyForPrint(totalCredit)}</span></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Shop</th>
+            <th>Booker</th>
+            <th>Amount</th>
+            <th>Paid</th>
+            <th>Status</th>
+            <th>Payment</th>
+          </tr>
+        </thead>
+        <tbody>${ordersHtml}</tbody>
+      </table>
+    `;
+    printContent(content, 'Orders Report');
+  };
+
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -334,9 +423,14 @@ const Orders: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (item: Order) => (
-        <button onClick={() => viewOrder(item)} className="rounded-lg p-2 hover:bg-muted">
-          <Eye className="h-4 w-4 text-muted-foreground" />
-        </button>
+        <div className="flex gap-1">
+          <button onClick={() => viewOrder(item)} className="rounded-lg p-2 hover:bg-muted" title="View">
+            <Eye className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <button onClick={() => printOrder(item)} className="rounded-lg p-2 hover:bg-muted" title="Print">
+            <Printer className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -361,10 +455,16 @@ const Orders: React.FC = () => {
             <h1 className="page-title">Orders</h1>
             <p className="page-subtitle">{isAdmin ? 'View and manage all orders' : 'Create and track your orders'}</p>
           </div>
-          <button onClick={() => setShowNewOrderModal(true)} className="btn-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            New Order
-          </button>
+          <div className="flex gap-2">
+            <button onClick={printAllOrders} className="btn-secondary">
+              <Printer className="mr-2 h-4 w-4" />
+              Print Report
+            </button>
+            <button onClick={() => setShowNewOrderModal(true)} className="btn-primary">
+              <Plus className="mr-2 h-4 w-4" />
+              New Order
+            </button>
+          </div>
         </div>
       </div>
 
