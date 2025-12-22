@@ -1,105 +1,143 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import StatCard from '@/components/ui/StatCard';
-import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users } from 'lucide-react';
-import { BookerFinancials } from '@/types';
+import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-// Mock financials data
-const mockBookerFinancials: BookerFinancials[] = [
-  {
-    bookerId: '2',
-    bookerName: 'Ahmed Khan',
-    totalOrders: 156,
-    totalCashCollected: 450000,
-    totalCreditGiven: 85000,
-    pendingAmount: 35000,
-    salary: 45000,
-    advanceTaken: 10000,
-    remainingBalance: 0,
-  },
-  {
-    bookerId: '3',
-    bookerName: 'Hassan Ali',
-    totalOrders: 134,
-    totalCashCollected: 380000,
-    totalCreditGiven: 65000,
-    pendingAmount: 28000,
-    salary: 45000,
-    advanceTaken: 5000,
-    remainingBalance: 0,
-  },
-  {
-    bookerId: '4',
-    bookerName: 'Bilal Ahmed',
-    totalOrders: 98,
-    totalCashCollected: 290000,
-    totalCreditGiven: 45000,
-    pendingAmount: 18000,
-    salary: 40000,
-    advanceTaken: 15000,
-    remainingBalance: 5000,
-  },
-];
+interface BookerFinancials {
+  booker_id: string;
+  booker_name: string;
+  total_orders: number;
+  total_cash_collected: number;
+  total_credit_given: number;
+  pending_amount: number;
+  salary: number;
+  advance_taken: number;
+}
 
 const Financials: React.FC = () => {
+  const [financials, setFinancials] = useState<BookerFinancials[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredFinancials = mockBookerFinancials.filter((booker) =>
-    booker.bookerName.toLowerCase().includes(searchQuery.toLowerCase())
+  const fetchFinancials = async () => {
+    try {
+      // Get all approved bookers
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('status', 'approved');
+
+      if (profilesError) throw profilesError;
+
+      // Get orders grouped by booker
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('booker_id, total_amount, paid_amount');
+
+      if (ordersError) throw ordersError;
+
+      // Get booker financials from dedicated table
+      const { data: bookerFinData, error: finError } = await supabase
+        .from('booker_financials')
+        .select('*');
+
+      if (finError) throw finError;
+
+      // Aggregate data
+      const bookerStats: Record<string, BookerFinancials> = {};
+
+      profiles?.forEach(profile => {
+        bookerStats[profile.user_id] = {
+          booker_id: profile.user_id,
+          booker_name: profile.full_name,
+          total_orders: 0,
+          total_cash_collected: 0,
+          total_credit_given: 0,
+          pending_amount: 0,
+          salary: 0,
+          advance_taken: 0,
+        };
+      });
+
+      orders?.forEach(order => {
+        if (bookerStats[order.booker_id]) {
+          bookerStats[order.booker_id].total_orders += 1;
+          bookerStats[order.booker_id].total_cash_collected += order.paid_amount || 0;
+          bookerStats[order.booker_id].total_credit_given += (order.total_amount - (order.paid_amount || 0));
+          bookerStats[order.booker_id].pending_amount += (order.total_amount - (order.paid_amount || 0));
+        }
+      });
+
+      // Merge with booker_financials table data
+      bookerFinData?.forEach(fin => {
+        if (bookerStats[fin.booker_id]) {
+          bookerStats[fin.booker_id].salary = fin.salary || 0;
+          bookerStats[fin.booker_id].advance_taken = fin.advance_taken || 0;
+        }
+      });
+
+      setFinancials(Object.values(bookerStats).filter(b => b.total_orders > 0 || b.salary > 0 || b.advance_taken > 0));
+    } catch (error: any) {
+      toast.error('Failed to load financials: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFinancials();
+  }, []);
+
+  const filteredFinancials = financials.filter((booker) =>
+    booker.booker_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString()}`;
+  const formatCurrency = (amount: number) => `Rs. ${amount?.toLocaleString() || 0}`;
 
-  const totalCash = mockBookerFinancials.reduce((acc, b) => acc + b.totalCashCollected, 0);
-  const totalCredit = mockBookerFinancials.reduce((acc, b) => acc + b.totalCreditGiven, 0);
-  const totalPending = mockBookerFinancials.reduce((acc, b) => acc + b.pendingAmount, 0);
-  const totalAdvance = mockBookerFinancials.reduce((acc, b) => acc + b.advanceTaken, 0);
+  const totalCash = financials.reduce((acc, b) => acc + b.total_cash_collected, 0);
+  const totalCredit = financials.reduce((acc, b) => acc + b.total_credit_given, 0);
+  const totalPending = financials.reduce((acc, b) => acc + b.pending_amount, 0);
+  const totalAdvance = financials.reduce((acc, b) => acc + b.advance_taken, 0);
 
   const columns = [
     {
-      key: 'bookerName',
+      key: 'booker_name',
       header: 'Order Booker',
       render: (item: BookerFinancials) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
-            {item.bookerName.charAt(0)}
+            {item.booker_name.charAt(0)}
           </div>
-          <span className="font-medium">{item.bookerName}</span>
+          <span className="font-medium">{item.booker_name}</span>
         </div>
       ),
     },
     {
-      key: 'totalOrders',
+      key: 'total_orders',
       header: 'Total Orders',
-      render: (item: BookerFinancials) => (
-        <span className="font-medium">{item.totalOrders}</span>
-      ),
+      render: (item: BookerFinancials) => <span className="font-medium">{item.total_orders}</span>,
     },
     {
-      key: 'totalCashCollected',
+      key: 'total_cash_collected',
       header: 'Cash Collected',
       render: (item: BookerFinancials) => (
-        <span className="text-success font-medium">
-          {formatCurrency(item.totalCashCollected)}
-        </span>
+        <span className="text-success font-medium">{formatCurrency(item.total_cash_collected)}</span>
       ),
     },
     {
-      key: 'totalCreditGiven',
+      key: 'total_credit_given',
       header: 'Credit Given',
       render: (item: BookerFinancials) => (
-        <span className="text-warning font-medium">
-          {formatCurrency(item.totalCreditGiven)}
-        </span>
+        <span className="text-warning font-medium">{formatCurrency(item.total_credit_given)}</span>
       ),
     },
     {
-      key: 'pendingAmount',
+      key: 'pending_amount',
       header: 'Pending',
       render: (item: BookerFinancials) => (
-        <span className="text-destructive font-medium">
-          {formatCurrency(item.pendingAmount)}
-        </span>
+        <span className="text-destructive font-medium">{formatCurrency(item.pending_amount)}</span>
       ),
     },
     {
@@ -108,92 +146,65 @@ const Financials: React.FC = () => {
       render: (item: BookerFinancials) => formatCurrency(item.salary),
     },
     {
-      key: 'advanceTaken',
+      key: 'advance_taken',
       header: 'Advance',
       render: (item: BookerFinancials) => (
-        <span className={item.advanceTaken > 0 ? 'text-warning' : ''}>
-          {formatCurrency(item.advanceTaken)}
+        <span className={item.advance_taken > 0 ? 'text-warning' : ''}>
+          {formatCurrency(item.advance_taken)}
         </span>
       ),
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const collectionRate = totalCash + totalCredit > 0 ? (totalCash / (totalCash + totalCredit)) * 100 : 0;
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="page-header">
         <h1 className="page-title">Financial Overview</h1>
-        <p className="page-subtitle">
-          Track cash flow, credits, and order booker financials
-        </p>
+        <p className="page-subtitle">Track cash flow, credits, and order booker financials</p>
       </div>
 
-      {/* Main Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Cash Collected"
-          value={formatCurrency(totalCash)}
-          icon={Wallet}
-          trend={{ value: 15.2, isPositive: true }}
-          variant="success"
-        />
-        <StatCard
-          title="Total Credit Given"
-          value={formatCurrency(totalCredit)}
-          icon={CreditCard}
-          trend={{ value: 8.5, isPositive: false }}
-          variant="warning"
-        />
-        <StatCard
-          title="Pending Payments"
-          value={formatCurrency(totalPending)}
-          icon={TrendingDown}
-          variant="default"
-        />
-        <StatCard
-          title="Advance Given"
-          value={formatCurrency(totalAdvance)}
-          icon={DollarSign}
-          variant="default"
-        />
+        <StatCard title="Total Cash Collected" value={formatCurrency(totalCash)} icon={Wallet} trend={{ value: collectionRate, isPositive: true }} variant="success" />
+        <StatCard title="Total Credit Given" value={formatCurrency(totalCredit)} icon={CreditCard} variant="warning" />
+        <StatCard title="Pending Payments" value={formatCurrency(totalPending)} icon={TrendingDown} variant="default" />
+        <StatCard title="Advance Given" value={formatCurrency(totalAdvance)} icon={DollarSign} variant="default" />
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Collection Summary */}
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="text-lg font-semibold mb-4">Collection Summary</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Total Sales</span>
-              <span className="font-medium">
-                {formatCurrency(totalCash + totalCredit)}
-              </span>
+              <span className="font-medium">{formatCurrency(totalCash + totalCredit)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Cash Received</span>
-              <span className="font-medium text-success">
-                {formatCurrency(totalCash)}
-              </span>
+              <span className="font-medium text-success">{formatCurrency(totalCash)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Credit Outstanding</span>
-              <span className="font-medium text-warning">
-                {formatCurrency(totalCredit)}
-              </span>
+              <span className="font-medium text-warning">{formatCurrency(totalCredit)}</span>
             </div>
             <div className="border-t border-border pt-4">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Collection Rate</span>
-                <span className="text-success font-bold">
-                  {((totalCash / (totalCash + totalCredit)) * 100).toFixed(1)}%
-                </span>
+                <span className="text-success font-bold">{collectionRate.toFixed(1)}%</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Payment Status */}
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="text-lg font-semibold mb-4">Payment Status</h3>
           <div className="space-y-3">
@@ -202,10 +213,10 @@ const Financials: React.FC = () => {
                 <div className="h-3 w-3 rounded-full bg-success" />
                 <span className="text-sm">Paid</span>
               </div>
-              <span className="font-medium">65%</span>
+              <span className="font-medium">{collectionRate.toFixed(0)}%</span>
             </div>
             <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full w-[65%] bg-success rounded-full" />
+              <div className="h-full bg-success rounded-full" style={{ width: `${collectionRate}%` }} />
             </div>
 
             <div className="flex items-center justify-between mt-4">
@@ -213,70 +224,49 @@ const Financials: React.FC = () => {
                 <div className="h-3 w-3 rounded-full bg-warning" />
                 <span className="text-sm">Credit</span>
               </div>
-              <span className="font-medium">25%</span>
+              <span className="font-medium">{(100 - collectionRate).toFixed(0)}%</span>
             </div>
             <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full w-[25%] bg-warning rounded-full" />
-            </div>
-
-            <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-destructive" />
-                <span className="text-sm">Overdue</span>
-              </div>
-              <span className="font-medium">10%</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full w-[10%] bg-destructive rounded-full" />
+              <div className="h-full bg-warning rounded-full" style={{ width: `${100 - collectionRate}%` }} />
             </div>
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+          <h3 className="text-lg font-semibold mb-4">Quick Stats</h3>
           <div className="space-y-3">
-            <button className="w-full btn-primary justify-start">
-              <DollarSign className="mr-2 h-4 w-4" />
-              Record Payment
-            </button>
-            <button className="w-full btn-secondary justify-start">
-              <CreditCard className="mr-2 h-4 w-4" />
-              Update Credit
-            </button>
-            <button className="w-full btn-secondary justify-start">
-              <Users className="mr-2 h-4 w-4" />
-              Give Advance
-            </button>
-            <button className="w-full btn-ghost justify-start border border-border">
-              <TrendingUp className="mr-2 h-4 w-4" />
-              Generate Report
-            </button>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Active Bookers</span>
+              <span className="font-medium">{financials.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Total Orders</span>
+              <span className="font-medium">{financials.reduce((acc, b) => acc + b.total_orders, 0)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Avg Order Value</span>
+              <span className="font-medium">
+                {formatCurrency(financials.reduce((acc, b) => acc + b.total_orders, 0) > 0
+                  ? (totalCash + totalCredit) / financials.reduce((acc, b) => acc + b.total_orders, 0)
+                  : 0)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Total Salaries</span>
+              <span className="font-medium">{formatCurrency(financials.reduce((acc, b) => acc + b.salary, 0))}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search order bookers..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="input-field pl-10"
-        />
+        <input type="text" placeholder="Search order bookers..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="input-field pl-10" />
       </div>
 
-      {/* Booker Financials Table */}
       <div>
         <h2 className="section-title">Order Booker Financials</h2>
-        <DataTable
-          columns={columns}
-          data={filteredFinancials}
-          keyExtractor={(item) => item.bookerId}
-          emptyMessage="No data found"
-        />
+        <DataTable columns={columns} data={filteredFinancials} keyExtractor={(item) => item.booker_id} emptyMessage="No financial data found" />
       </div>
     </div>
   );
