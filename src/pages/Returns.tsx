@@ -1,128 +1,225 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, RotateCcw } from 'lucide-react';
-import { ProductReturn } from '@/types';
+import { Plus, Search, Eye, RotateCcw, Loader2, X } from 'lucide-react';
+import { toast } from 'sonner';
 
-// Mock returns data
-const mockReturns: ProductReturn[] = [
-  {
-    id: 'RET-001',
-    shopId: '1',
-    shopName: 'Al-Madina General Store',
-    routeId: '1',
-    bookerId: '2',
-    bookerName: 'Ahmed Khan',
-    items: [
-      { productId: '1', productName: 'Peek Freans Rio', quantity: 5, reason: 'Damaged packaging' },
-    ],
-    totalValue: 600,
-    createdAt: new Date(),
-  },
-  {
-    id: 'RET-002',
-    shopId: '3',
-    shopName: 'Quick Shop',
-    routeId: '3',
-    bookerId: '2',
-    bookerName: 'Ahmed Khan',
-    items: [
-      { productId: '3', productName: 'Candyland Eclairs', quantity: 10, reason: 'Expired products' },
-    ],
-    totalValue: 1500,
-    createdAt: new Date(),
-  },
-  {
-    id: 'RET-003',
-    shopId: '2',
-    shopName: 'City Mart',
-    routeId: '2',
-    bookerId: '3',
-    bookerName: 'Hassan Ali',
-    items: [
-      { productId: '2', productName: 'LU Prince', quantity: 8, reason: 'Wrong order' },
-    ],
-    totalValue: 640,
-    createdAt: new Date(),
-  },
-];
+interface Return {
+  id: string;
+  shop_id: string;
+  product_id: string;
+  booker_id: string;
+  quantity: number;
+  reason: string | null;
+  status: string;
+  created_at: string;
+  shops?: { name: string };
+  products?: { name: string; price: number };
+  booker_profile?: { full_name: string } | null;
+}
+
+interface Shop {
+  id: string;
+  name: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+}
 
 const Returns: React.FC = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const [returns, setReturns] = useState<Return[]>([]);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingReturn, setViewingReturn] = useState<Return | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const filteredReturns = mockReturns.filter(
+  const [formData, setFormData] = useState({
+    shop_id: '',
+    product_id: '',
+    quantity: '1',
+    reason: '',
+  });
+
+  const fetchData = async () => {
+    try {
+      let query = supabase
+        .from('returns')
+        .select(`
+          *,
+          shops(name),
+          products(name, price)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (!isAdmin && user) {
+        query = query.eq('booker_id', user.id);
+      }
+
+      const { data: returnsData, error: returnsError } = await query;
+      if (returnsError) throw returnsError;
+
+      // Fetch booker profiles
+      const returnsWithBookers = await Promise.all(
+        (returnsData || []).map(async (ret) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('user_id', ret.booker_id)
+            .maybeSingle();
+          return { ...ret, booker_profile: profile };
+        })
+      );
+
+      setReturns(returnsWithBookers);
+
+      // Fetch shops
+      const { data: shopsData } = await supabase.from('shops').select('id, name').order('name');
+      setShops(shopsData || []);
+
+      // Fetch products
+      const { data: productsData } = await supabase.from('products').select('id, name, price').eq('is_active', true).order('name');
+      setProducts(productsData || []);
+    } catch (error: any) {
+      toast.error('Failed to load returns: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [isAdmin, user]);
+
+  const handleAddReturn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.shop_id || !formData.product_id || !formData.quantity) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    if (!user) {
+      toast.error('You must be logged in');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('returns').insert({
+        shop_id: formData.shop_id,
+        product_id: formData.product_id,
+        booker_id: user.id,
+        quantity: parseInt(formData.quantity),
+        reason: formData.reason || null,
+        status: 'pending',
+      });
+
+      if (error) throw error;
+
+      toast.success('Return recorded successfully');
+      setShowAddModal(false);
+      resetForm();
+      fetchData();
+    } catch (error: any) {
+      toast.error('Failed to record return: ' + error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ shop_id: '', product_id: '', quantity: '1', reason: '' });
+  };
+
+  const viewReturn = (ret: Return) => {
+    setViewingReturn(ret);
+    setShowViewModal(true);
+  };
+
+  const filteredReturns = returns.filter(
     (ret) =>
-      ret.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ret.shopName.toLowerCase().includes(searchQuery.toLowerCase())
+      ret.shops?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ret.products?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString()}`;
+  const formatCurrency = (amount: number) => `Rs. ${amount?.toLocaleString() || 0}`;
+
+  const calculateReturnValue = (ret: Return) => {
+    return (ret.products?.price || 0) * ret.quantity;
+  };
+
+  const totalReturnsValue = returns.reduce((acc, ret) => acc + calculateReturnValue(ret), 0);
 
   const columns = [
     {
       key: 'id',
       header: 'Return ID',
-      render: (item: ProductReturn) => (
-        <span className="font-mono text-sm font-medium text-accent">{item.id}</span>
+      render: (item: Return) => (
+        <span className="font-mono text-sm font-medium text-accent">{item.id.slice(0, 8)}</span>
       ),
     },
     {
-      key: 'shopName',
+      key: 'shop',
       header: 'Shop',
-      render: (item: ProductReturn) => (
-        <div>
-          <p className="font-medium">{item.shopName}</p>
-        </div>
-      ),
-    },
-    { key: 'bookerName', header: 'Processed By' },
-    {
-      key: 'items',
-      header: 'Items',
-      render: (item: ProductReturn) => (
-        <span>{item.items.length} product(s)</span>
-      ),
+      render: (item: Return) => <p className="font-medium">{item.shops?.name}</p>,
     },
     {
-      key: 'totalValue',
+      key: 'product',
+      header: 'Product',
+      render: (item: Return) => <p>{item.products?.name}</p>,
+    },
+    { key: 'quantity', header: 'Qty', render: (item: Return) => item.quantity },
+    { key: 'booker', header: 'Processed By', render: (item: Return) => item.booker_profile?.full_name || 'N/A' },
+    {
+      key: 'value',
       header: 'Value',
-      render: (item: ProductReturn) => (
-        <span className="font-medium text-destructive">
-          {formatCurrency(item.totalValue)}
+      render: (item: Return) => (
+        <span className="font-medium text-destructive">{formatCurrency(calculateReturnValue(item))}</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: Return) => (
+        <span className={item.status === 'approved' ? 'badge-success' : item.status === 'rejected' ? 'badge-destructive' : 'badge-pending'}>
+          {item.status?.charAt(0).toUpperCase() + item.status?.slice(1)}
         </span>
       ),
     },
     {
-      key: 'createdAt',
-      header: 'Date',
-      render: (item: ProductReturn) =>
-        new Date(item.createdAt).toLocaleDateString(),
-    },
-    {
       key: 'actions',
       header: 'Actions',
-      render: (item: ProductReturn) => (
-        <button className="rounded-lg p-2 hover:bg-muted">
+      render: (item: Return) => (
+        <button onClick={() => viewReturn(item)} className="rounded-lg p-2 hover:bg-muted">
           <Eye className="h-4 w-4 text-muted-foreground" />
         </button>
       ),
     },
   ];
 
-  const totalReturnsValue = mockReturns.reduce((acc, ret) => acc + ret.totalValue, 0);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="page-header">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="page-title">Product Returns</h1>
-            <p className="page-subtitle">
-              Track and manage product returns from shops
-            </p>
+            <p className="page-subtitle">Track and manage product returns from shops</p>
           </div>
           <button onClick={() => setShowAddModal(true)} className="btn-primary">
             <Plus className="mr-2 h-4 w-4" />
@@ -131,137 +228,97 @@ const Returns: React.FC = () => {
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search returns..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="input-field pl-10"
-        />
+        <input type="text" placeholder="Search returns..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="input-field pl-10" />
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Total Returns</p>
-          <p className="mt-1 text-2xl font-bold">{mockReturns.length}</p>
-        </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Total Return Value</p>
-          <p className="mt-1 text-2xl font-bold text-destructive">
-            {formatCurrency(totalReturnsValue)}
-          </p>
-        </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">This Month</p>
-          <p className="mt-1 text-2xl font-bold">{mockReturns.length}</p>
-        </div>
+        <div className="stat-card"><p className="text-sm text-muted-foreground">Total Returns</p><p className="mt-1 text-2xl font-bold">{returns.length}</p></div>
+        <div className="stat-card"><p className="text-sm text-muted-foreground">Total Return Value</p><p className="mt-1 text-2xl font-bold text-destructive">{formatCurrency(totalReturnsValue)}</p></div>
+        <div className="stat-card"><p className="text-sm text-muted-foreground">Pending Returns</p><p className="mt-1 text-2xl font-bold">{returns.filter(r => r.status === 'pending').length}</p></div>
       </div>
 
-      {/* Returns Table */}
-      <DataTable
-        columns={columns}
-        data={filteredReturns}
-        keyExtractor={(item) => item.id}
-        emptyMessage="No returns found"
-      />
+      <DataTable columns={columns} data={filteredReturns} keyExtractor={(item) => item.id} emptyMessage="No returns found" />
 
       {/* Add Return Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
           <div className="w-full max-w-lg rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
             <h2 className="text-xl font-bold text-foreground">Record Product Return</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Enter return details to update inventory
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Enter return details to update inventory</p>
 
-            <form className="mt-6 space-y-4">
+            <form onSubmit={handleAddReturn} className="mt-6 space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Shop</label>
-                <select className="input-field">
+                <label className="mb-1.5 block text-sm font-medium">Shop *</label>
+                <select className="input-field" value={formData.shop_id} onChange={(e) => setFormData({ ...formData, shop_id: e.target.value })} disabled={submitting}>
                   <option value="">Select shop</option>
-                  <option value="1">Al-Madina General Store</option>
-                  <option value="2">City Mart</option>
-                  <option value="3">Quick Shop</option>
+                  {shops.map((shop) => (<option key={shop.id} value={shop.id}>{shop.name}</option>))}
                 </select>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Product</label>
-                <select className="input-field">
+                <label className="mb-1.5 block text-sm font-medium">Product *</label>
+                <select className="input-field" value={formData.product_id} onChange={(e) => setFormData({ ...formData, product_id: e.target.value })} disabled={submitting}>
                   <option value="">Select product</option>
-                  <option value="1">Peek Freans Rio</option>
-                  <option value="2">LU Prince</option>
-                  <option value="3">Candyland Eclairs</option>
+                  {products.map((p) => (<option key={p.id} value={p.id}>{p.name} - Rs. {p.price}</option>))}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    placeholder="0"
-                    min="1"
-                  />
+                  <label className="mb-1.5 block text-sm font-medium">Quantity *</label>
+                  <input type="number" className="input-field" min="1" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} disabled={submitting} />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Return Value
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Rs. 0"
-                    disabled
-                  />
+                  <label className="mb-1.5 block text-sm font-medium">Return Value</label>
+                  <input type="text" className="input-field" value={formatCurrency((products.find(p => p.id === formData.product_id)?.price || 0) * parseInt(formData.quantity || '0'))} disabled />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  Return Reason
-                </label>
-                <select className="input-field">
+                <label className="mb-1.5 block text-sm font-medium">Return Reason</label>
+                <select className="input-field" value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} disabled={submitting}>
                   <option value="">Select reason</option>
-                  <option value="damaged">Damaged Packaging</option>
-                  <option value="expired">Expired Products</option>
-                  <option value="wrong">Wrong Order</option>
-                  <option value="quality">Quality Issues</option>
-                  <option value="other">Other</option>
+                  <option value="Damaged Packaging">Damaged Packaging</option>
+                  <option value="Expired Products">Expired Products</option>
+                  <option value="Wrong Order">Wrong Order</option>
+                  <option value="Quality Issues">Quality Issues</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  Additional Notes
-                </label>
-                <textarea
-                  className="input-field min-h-[80px]"
-                  placeholder="Any additional details..."
-                />
-              </div>
-
               <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  <RotateCcw className="mr-2 h-4 w-4" />
+                <button type="button" onClick={() => { setShowAddModal(false); resetForm(); }} className="btn-secondary" disabled={submitting}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="mr-2 h-4 w-4" />}
                   Record Return
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Return Modal */}
+      {showViewModal && viewingReturn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-foreground">Return Details</h2>
+              <button onClick={() => setShowViewModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Shop:</span><span className="font-medium">{viewingReturn.shops?.name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Product:</span><span className="font-medium">{viewingReturn.products?.name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Quantity:</span><span className="font-medium">{viewingReturn.quantity}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Value:</span><span className="font-medium text-destructive">{formatCurrency(calculateReturnValue(viewingReturn))}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Reason:</span><span className="font-medium">{viewingReturn.reason || 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Status:</span><span className={viewingReturn.status === 'approved' ? 'badge-success' : 'badge-pending'}>{viewingReturn.status}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Processed By:</span><span className="font-medium">{viewingReturn.booker_profile?.full_name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Date:</span><span className="font-medium">{new Date(viewingReturn.created_at).toLocaleDateString()}</span></div>
+            </div>
           </div>
         </div>
       )}
