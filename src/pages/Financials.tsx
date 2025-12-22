@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import StatCard from '@/components/ui/StatCard';
-import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users, Loader2 } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users, Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { printContent, formatCurrencyForPrint } from '@/lib/print';
 
 interface BookerFinancials {
   booker_id: string;
@@ -166,11 +167,69 @@ const Financials: React.FC = () => {
 
   const collectionRate = totalCash + totalCredit > 0 ? (totalCash / (totalCash + totalCredit)) * 100 : 0;
 
+  const printFinancialReport = () => {
+    const bookersHtml = filteredFinancials.map(b => `
+      <tr>
+        <td>${b.booker_name}</td>
+        <td>${b.total_orders}</td>
+        <td>${formatCurrencyForPrint(b.total_cash_collected)}</td>
+        <td>${formatCurrencyForPrint(b.total_credit_given)}</td>
+        <td>${formatCurrencyForPrint(b.pending_amount)}</td>
+        <td>${formatCurrencyForPrint(b.salary)}</td>
+        <td>${formatCurrencyForPrint(b.advance_taken)}</td>
+      </tr>
+    `).join('');
+
+    const content = `
+      <div class="header">
+        <h1>AR Traders</h1>
+        <p>Financial Report</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Total Cash Collected:</span><span class="info-value">${formatCurrencyForPrint(totalCash)}</span></div>
+        <div class="info-item"><span class="info-label">Total Credit Given:</span><span class="info-value">${formatCurrencyForPrint(totalCredit)}</span></div>
+        <div class="info-item"><span class="info-label">Pending Payments:</span><span class="info-value">${formatCurrencyForPrint(totalPending)}</span></div>
+        <div class="info-item"><span class="info-label">Advance Given:</span><span class="info-value">${formatCurrencyForPrint(totalAdvance)}</span></div>
+        <div class="info-item"><span class="info-label">Total Sales:</span><span class="info-value">${formatCurrencyForPrint(totalCash + totalCredit)}</span></div>
+        <div class="info-item"><span class="info-label">Collection Rate:</span><span class="info-value">${collectionRate.toFixed(1)}%</span></div>
+      </div>
+      <h3 style="margin: 20px 0 10px; font-size: 14px;">Order Booker Financials</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Booker</th>
+            <th>Orders</th>
+            <th>Cash</th>
+            <th>Credit</th>
+            <th>Pending</th>
+            <th>Salary</th>
+            <th>Advance</th>
+          </tr>
+        </thead>
+        <tbody>${bookersHtml}</tbody>
+      </table>
+      <div class="summary">
+        <div class="summary-row"><span>Total Orders:</span><span>${financials.reduce((acc, b) => acc + b.total_orders, 0)}</span></div>
+        <div class="summary-row"><span>Total Salaries:</span><span>${formatCurrencyForPrint(financials.reduce((acc, b) => acc + b.salary, 0))}</span></div>
+        <div class="summary-row total"><span>Net Collection:</span><span>${formatCurrencyForPrint(totalCash)}</span></div>
+      </div>
+    `;
+    printContent(content, 'Financial Report');
+  };
+
   return (
     <div className="space-y-6">
       <div className="page-header">
-        <h1 className="page-title">Financial Overview</h1>
-        <p className="page-subtitle">Track cash flow, credits, and order booker financials</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="page-title">Financial Overview</h1>
+            <p className="page-subtitle">Track cash flow, credits, and order booker financials</p>
+          </div>
+          <button onClick={printFinancialReport} className="btn-secondary">
+            <Printer className="mr-2 h-4 w-4" />
+            Print Report
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
