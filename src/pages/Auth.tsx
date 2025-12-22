@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Package, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react';
-import { UserRole } from '@/types';
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const { login, register } = useAuth();
+  const { login, register, user, isApproved } = useAuth();
   const navigate = useNavigate();
 
   // Login form state
@@ -21,7 +20,13 @@ const Auth: React.FC = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPhone, setRegisterPhone] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
-  const [registerRole, setRegisterRole] = useState<UserRole>('order_booker');
+
+  // Redirect if already logged in and approved
+  useEffect(() => {
+    if (user && isApproved) {
+      navigate('/dashboard');
+    }
+  }, [user, isApproved, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +55,6 @@ const Auth: React.FC = () => {
       email: registerEmail,
       phone: registerPhone,
       password: registerPassword,
-      role: registerRole,
     });
 
     if (result.success) {
@@ -61,8 +65,8 @@ const Auth: React.FC = () => {
         setRegisterEmail('');
         setRegisterPhone('');
         setRegisterPassword('');
-      } else {
-        navigate('/dashboard');
+        // Switch to login tab
+        setIsLogin(true);
       }
     } else {
       setError(result.error || 'Registration failed');
@@ -139,7 +143,7 @@ const Auth: React.FC = () => {
               <p className="mt-2 text-muted-foreground">
                 {isLogin
                   ? 'Enter your credentials to access your account'
-                  : 'Fill in your details to get started'}
+                  : 'Register as an Order Booker to get started'}
               </p>
             </div>
 
@@ -149,7 +153,6 @@ const Auth: React.FC = () => {
                 onClick={() => {
                   setIsLogin(true);
                   setError('');
-                  setSuccess('');
                 }}
                 className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
                   isLogin
@@ -235,12 +238,6 @@ const Auth: React.FC = () => {
                 >
                   {isLoading ? 'Signing in...' : 'Sign In'}
                 </button>
-
-                <div className="mt-4 rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Demo Credentials:</p>
-                  <p className="text-xs text-muted-foreground">Admin: admin@artraders.com / admin123</p>
-                  <p className="text-xs text-muted-foreground">Booker: ahmed@artraders.com / booker123</p>
-                </div>
               </form>
             ) : (
               /* Register Form */
@@ -314,24 +311,9 @@ const Auth: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Role
-                  </label>
-                  <select
-                    value={registerRole}
-                    onChange={(e) => setRegisterRole(e.target.value as UserRole)}
-                    className="input-field"
-                  >
-                    <option value="order_booker">Order Booker</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                  {registerRole === 'order_booker' && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      Note: Order Booker accounts require admin approval before login.
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Note: Your account will need admin approval before you can login.
+                </p>
 
                 <button
                   type="submit"

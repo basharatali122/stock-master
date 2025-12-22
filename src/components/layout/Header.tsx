@@ -7,7 +7,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
-  const { user } = useAuth();
+  const { profile, isAdmin } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-6">
@@ -39,13 +39,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         <div className="hidden items-center gap-3 border-l border-border pl-4 sm:flex">
           <div className="text-right">
-            <p className="text-sm font-medium text-foreground">{user?.name}</p>
+            <p className="text-sm font-medium text-foreground">{profile?.full_name || 'User'}</p>
             <p className="text-xs text-muted-foreground">
-              {user?.role === 'admin' ? 'Administrator' : 'Order Booker'}
+              {isAdmin ? 'Administrator' : 'Order Booker'}
             </p>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            {user?.name.charAt(0).toUpperCase()}
+            {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
         </div>
       </div>
