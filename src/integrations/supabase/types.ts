@@ -14,16 +14,389 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      booker_financials: {
+        Row: {
+          advance_taken: number | null
+          booker_id: string
+          created_at: string | null
+          id: string
+          salary: number | null
+          total_cash_collected: number | null
+          total_credit_pending: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          advance_taken?: number | null
+          booker_id: string
+          created_at?: string | null
+          id?: string
+          salary?: number | null
+          total_cash_collected?: number | null
+          total_credit_pending?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          advance_taken?: number | null
+          booker_id?: string
+          created_at?: string | null
+          id?: string
+          salary?: number | null
+          total_cash_collected?: number | null
+          total_credit_pending?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cities: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          discount_applied: number | null
+          id: string
+          order_id: string
+          product_id: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          discount_applied?: number | null
+          id?: string
+          order_id: string
+          product_id: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          discount_applied?: number | null
+          id?: string
+          order_id?: string
+          product_id?: string
+          quantity?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          booker_id: string
+          created_at: string | null
+          id: string
+          order_number: string
+          paid_amount: number | null
+          payment_status: string | null
+          shop_id: string
+          status: string | null
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          booker_id: string
+          created_at?: string | null
+          id?: string
+          order_number: string
+          paid_amount?: number | null
+          payment_status?: string | null
+          shop_id: string
+          status?: string | null
+          total_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          booker_id?: string
+          created_at?: string | null
+          id?: string
+          order_number?: string
+          paid_amount?: number | null
+          payment_status?: string | null
+          shop_id?: string
+          status?: string | null
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string | null
+          discount_percentage: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number
+          stock_quantity: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          discount_percentage?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price: number
+          stock_quantity?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          discount_percentage?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number
+          stock_quantity?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          phone: string | null
+          status: Database["public"]["Enums"]["approval_status"] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name: string
+          id?: string
+          phone?: string | null
+          status?: Database["public"]["Enums"]["approval_status"] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          status?: Database["public"]["Enums"]["approval_status"] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      returns: {
+        Row: {
+          booker_id: string
+          created_at: string | null
+          id: string
+          product_id: string
+          quantity: number
+          reason: string | null
+          shop_id: string
+          status: string | null
+        }
+        Insert: {
+          booker_id: string
+          created_at?: string | null
+          id?: string
+          product_id: string
+          quantity: number
+          reason?: string | null
+          shop_id: string
+          status?: string | null
+        }
+        Update: {
+          booker_id?: string
+          created_at?: string | null
+          id?: string
+          product_id?: string
+          quantity?: number
+          reason?: string | null
+          shop_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routes: {
+        Row: {
+          active_days: string[] | null
+          assigned_booker_id: string | null
+          city_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          active_days?: string[] | null
+          assigned_booker_id?: string | null
+          city_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          active_days?: string[] | null
+          assigned_booker_id?: string | null
+          city_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shops: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          credit_balance: number | null
+          id: string
+          name: string
+          owner_name: string
+          phone: string | null
+          route_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          credit_balance?: number | null
+          id?: string
+          name: string
+          owner_name: string
+          phone?: string | null
+          route_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          credit_balance?: number | null
+          id?: string
+          name?: string
+          owner_name?: string
+          phone?: string | null
+          route_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_status: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["approval_status"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "order_booker"
+      approval_status: "pending" | "approved" | "rejected" | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +523,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "order_booker"],
+      approval_status: ["pending", "approved", "rejected", "inactive"],
+    },
   },
 } as const

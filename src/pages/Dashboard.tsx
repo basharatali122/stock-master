@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/ui/StatCard';
 import DataTable from '@/components/ui/DataTable';
 import {
@@ -16,103 +17,153 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-// Mock data
-const mockStats = {
-  totalSales: 2450000,
-  totalOrders: 1234,
-  totalShops: 567,
-  totalProducts: 89,
-  pendingPayments: 345000,
-  lowStockProducts: 12,
-  activeRoutes: 25,
-  pendingApprovals: 5,
-};
+interface DashboardStats {
+  totalSales: number;
+  totalOrders: number;
+  totalShops: number;
+  totalProducts: number;
+  pendingPayments: number;
+  lowStockProducts: number;
+  activeRoutes: number;
+  pendingApprovals: number;
+}
 
-const mockRecentOrders = [
-  {
-    id: '1',
-    shopName: 'Al-Madina General Store',
-    routeName: 'Gulberg Route',
-    bookerName: 'Ahmed Khan',
-    totalAmount: 15000,
-    paymentStatus: 'paid' as const,
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    shopName: 'City Mart',
-    routeName: 'Model Town Route',
-    bookerName: 'Hassan Ali',
-    totalAmount: 28500,
-    paymentStatus: 'credit' as const,
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    shopName: 'Quick Shop',
-    routeName: 'DHA Route',
-    bookerName: 'Ahmed Khan',
-    totalAmount: 12000,
-    paymentStatus: 'partial' as const,
-    createdAt: new Date(),
-  },
-  {
-    id: '4',
-    shopName: 'Family Store',
-    routeName: 'Johar Town Route',
-    bookerName: 'Bilal Ahmed',
-    totalAmount: 35000,
-    paymentStatus: 'paid' as const,
-    createdAt: new Date(),
-  },
-  {
-    id: '5',
-    shopName: 'Corner Shop',
-    routeName: 'Gulberg Route',
-    bookerName: 'Ahmed Khan',
-    totalAmount: 8500,
-    paymentStatus: 'credit' as const,
-    createdAt: new Date(),
-  },
-];
+interface RecentOrder {
+  id: string;
+  order_number: string;
+  shop_name: string;
+  route_name: string;
+  booker_name: string;
+  total_amount: number;
+  payment_status: string;
+  created_at: string;
+}
 
-const mockLowStockProducts = [
-  { id: '1', name: 'Peek Freans Rio', category: 'Biscuits', stockQuantity: 15 },
-  { id: '2', name: 'Candyland Eclairs', category: 'Toffees', stockQuantity: 8 },
-  { id: '3', name: 'LU Prince', category: 'Biscuits', stockQuantity: 20 },
-  { id: '4', name: 'Hilal Ding Dong', category: 'Toffees', stockQuantity: 12 },
-];
+interface LowStockProduct {
+  id: string;
+  name: string;
+  category: string;
+  stock_quantity: number;
+}
 
 const Dashboard: React.FC = () => {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalSales: 0,
+    totalOrders: 0,
+    totalShops: 0,
+    totalProducts: 0,
+    pendingPayments: 0,
+    lowStockProducts: 0,
+    activeRoutes: 0,
+    pendingApprovals: 0,
+  });
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch counts
+      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes] = await Promise.all([
+        supabase.from('orders').select('id, total_amount, paid_amount', { count: 'exact' }),
+        supabase.from('shops').select('id', { count: 'exact' }),
+        supabase.from('products').select('id, stock_quantity', { count: 'exact' }),
+        supabase.from('routes').select('id', { count: 'exact' }).eq('is_active', true),
+        supabase.from('profiles').select('id', { count: 'exact' }).eq('status', 'pending'),
+      ]);
+
+      const totalSales = ordersRes.data?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+      const pendingPayments = ordersRes.data?.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0) || 0;
+      const lowStock = productsRes.data?.filter(p => (p.stock_quantity || 0) < 50).length || 0;
+
+      setStats({
+        totalSales,
+        totalOrders: ordersRes.count || 0,
+        totalShops: shopsRes.count || 0,
+        totalProducts: productsRes.count || 0,
+        pendingPayments,
+        lowStockProducts: lowStock,
+        activeRoutes: routesRes.count || 0,
+        pendingApprovals: pendingUsersRes.count || 0,
+      });
+
+      // Fetch recent orders with related data
+      const { data: orders } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          total_amount,
+          payment_status,
+          created_at,
+          shops (name),
+          profiles:booker_id (full_name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (orders) {
+        setRecentOrders(orders.map((o: any) => ({
+          id: o.id,
+          order_number: o.order_number,
+          shop_name: o.shops?.name || 'Unknown',
+          route_name: 'Route',
+          booker_name: o.profiles?.full_name || 'Unknown',
+          total_amount: o.total_amount,
+          payment_status: o.payment_status,
+          created_at: o.created_at,
+        })));
+      }
+
+      // Fetch low stock products
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, name, category, stock_quantity')
+        .lt('stock_quantity', 50)
+        .order('stock_quantity')
+        .limit(5);
+
+      if (products) {
+        setLowStockProducts(products);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return `Rs. ${amount.toLocaleString()}`;
   };
 
   const orderColumns = [
-    { key: 'shopName', header: 'Shop' },
-    { key: 'routeName', header: 'Route' },
-    { key: 'bookerName', header: 'Booker' },
+    { key: 'shop_name', header: 'Shop' },
+    { key: 'booker_name', header: 'Booker' },
     {
-      key: 'totalAmount',
+      key: 'total_amount',
       header: 'Amount',
-      render: (item: typeof mockRecentOrders[0]) => formatCurrency(item.totalAmount),
+      render: (item: RecentOrder) => formatCurrency(item.total_amount),
     },
     {
-      key: 'paymentStatus',
+      key: 'payment_status',
       header: 'Status',
-      render: (item: typeof mockRecentOrders[0]) => (
+      render: (item: RecentOrder) => (
         <span
           className={
-            item.paymentStatus === 'paid'
+            item.payment_status === 'paid'
               ? 'badge-success'
-              : item.paymentStatus === 'credit'
+              : item.payment_status === 'credit'
               ? 'badge-pending'
               : 'badge-info'
           }
         >
-          {item.paymentStatus.charAt(0).toUpperCase() + item.paymentStatus.slice(1)}
+          {item.payment_status?.charAt(0).toUpperCase() + item.payment_status?.slice(1)}
         </span>
       ),
     },
@@ -122,10 +173,10 @@ const Dashboard: React.FC = () => {
     { key: 'name', header: 'Product' },
     { key: 'category', header: 'Category' },
     {
-      key: 'stockQuantity',
+      key: 'stock_quantity',
       header: 'Stock',
-      render: (item: typeof mockLowStockProducts[0]) => (
-        <span className="badge-destructive">{item.stockQuantity} units</span>
+      render: (item: LowStockProduct) => (
+        <span className="badge-destructive">{item.stock_quantity} units</span>
       ),
     },
   ];
@@ -140,7 +191,7 @@ const Dashboard: React.FC = () => {
               {isAdmin ? 'Admin Dashboard' : 'Order Booker Dashboard'}
             </h1>
             <p className="page-subtitle">
-              Welcome back, {user?.name}! Here's what's happening today.
+              Welcome back, {profile?.full_name || 'User'}! Here's what's happening today.
             </p>
           </div>
           <div className="flex gap-3">
@@ -156,27 +207,27 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Sales"
-          value={formatCurrency(mockStats.totalSales)}
+          value={formatCurrency(stats.totalSales)}
           icon={DollarSign}
           trend={{ value: 12.5, isPositive: true }}
           variant="primary"
         />
         <StatCard
           title="Total Orders"
-          value={mockStats.totalOrders}
+          value={stats.totalOrders}
           icon={ShoppingCart}
           trend={{ value: 8.2, isPositive: true }}
           variant="accent"
         />
         <StatCard
           title="Active Shops"
-          value={mockStats.totalShops}
+          value={stats.totalShops}
           icon={Store}
           trend={{ value: 3.1, isPositive: true }}
         />
         <StatCard
           title="Products"
-          value={mockStats.totalProducts}
+          value={stats.totalProducts}
           icon={Package}
         />
       </div>
@@ -186,24 +237,24 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Pending Payments"
-            value={formatCurrency(mockStats.pendingPayments)}
+            value={formatCurrency(stats.pendingPayments)}
             icon={Clock}
             variant="warning"
           />
           <StatCard
             title="Low Stock Items"
-            value={mockStats.lowStockProducts}
+            value={stats.lowStockProducts}
             icon={AlertTriangle}
             variant="warning"
           />
           <StatCard
             title="Active Routes"
-            value={mockStats.activeRoutes}
+            value={stats.activeRoutes}
             icon={Map}
           />
           <StatCard
             title="Pending Approvals"
-            value={mockStats.pendingApprovals}
+            value={stats.pendingApprovals}
             icon={Users}
           />
         </div>
@@ -225,9 +276,9 @@ const Dashboard: React.FC = () => {
           </div>
           <DataTable
             columns={orderColumns}
-            data={mockRecentOrders}
+            data={recentOrders}
             keyExtractor={(item) => item.id}
-            onRowClick={(item) => console.log('Order clicked:', item)}
+            emptyMessage={loading ? "Loading..." : "No orders yet"}
           />
         </div>
 
@@ -246,8 +297,9 @@ const Dashboard: React.FC = () => {
             </div>
             <DataTable
               columns={stockColumns}
-              data={mockLowStockProducts}
+              data={lowStockProducts}
               keyExtractor={(item) => item.id}
+              emptyMessage={loading ? "Loading..." : "No low stock items"}
             />
           </div>
         )}

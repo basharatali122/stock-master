@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { User, Lock, Bell, Shield, Save } from 'lucide-react';
 
 const Settings: React.FC = () => {
-  const { user } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
   const tabs = [
@@ -56,7 +56,7 @@ const Settings: React.FC = () => {
 
                 <div className="flex items-center gap-6">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-3xl font-bold text-primary-foreground">
-                    {user?.name.charAt(0).toUpperCase()}
+                    {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
                   <div>
                     <button className="btn-secondary">Change Photo</button>
@@ -73,7 +73,7 @@ const Settings: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      defaultValue={user?.name}
+                      defaultValue={profile?.full_name || ''}
                       className="input-field"
                     />
                   </div>
@@ -83,7 +83,7 @@ const Settings: React.FC = () => {
                     </label>
                     <input
                       type="email"
-                      defaultValue={user?.email}
+                      defaultValue={profile?.email || ''}
                       className="input-field"
                     />
                   </div>
@@ -93,7 +93,7 @@ const Settings: React.FC = () => {
                     </label>
                     <input
                       type="tel"
-                      defaultValue={user?.phone}
+                      defaultValue={profile?.phone || ''}
                       className="input-field"
                     />
                   </div>
@@ -101,7 +101,7 @@ const Settings: React.FC = () => {
                     <label className="mb-1.5 block text-sm font-medium">Role</label>
                     <input
                       type="text"
-                      value={user?.role === 'admin' ? 'Administrator' : 'Order Booker'}
+                      value={isAdmin ? 'Administrator' : 'Order Booker'}
                       className="input-field"
                       disabled
                     />

@@ -17,11 +17,11 @@ import {
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { profile, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/auth');
   };
 
@@ -83,14 +83,14 @@ const Sidebar: React.FC = () => {
         <div className="border-t border-sidebar-border p-4">
           <div className="mb-3 flex items-center gap-3 px-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
-              {user?.name.charAt(0).toUpperCase()}
+              {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="truncate text-sm font-medium text-sidebar-foreground">
-                {user?.name}
+                {profile?.full_name || 'User'}
               </p>
               <p className="truncate text-xs text-sidebar-muted">
-                {user?.role === 'admin' ? 'Administrator' : 'Order Booker'}
+                {isAdmin ? 'Administrator' : 'Order Booker'}
               </p>
             </div>
           </div>
