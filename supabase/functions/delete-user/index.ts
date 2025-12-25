@@ -92,11 +92,90 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Delete the user from auth.users (this will cascade to profiles and user_roles)
+    // Clean up related data before deleting user
+    // 1. Remove route assignments
+    const { error: routeError } = await supabaseAdmin
+      .from('routes')
+      .update({ assigned_booker_id: null })
+      .eq('assigned_booker_id', userId)
+    
+    if (routeError) {
+      console.error('Error clearing route assignments:', routeError)
+    }
+
+    // 2. Delete booker financials
+    const { error: financialsError } = await supabaseAdmin
+      .from('booker_financials')
+      .delete()
+      .eq('booker_id', userId)
+    
+    if (financialsError) {
+      console.error('Error deleting financials:', financialsError)
+    }
+
+    // 3. Delete returns
+    const { error: returnsError } = await supabaseAdmin
+      .from('returns')
+      .delete()
+      .eq('booker_id', userId)
+    
+    if (returnsError) {
+      console.error('Error deleting returns:', returnsError)
+    }
+
+    // 4. Delete order items for user's orders
+    const { data: userOrders } = await supabaseAdmin
+      .from('orders')
+      .select('id')
+      .eq('booker_id', userId)
+    
+    if (userOrders && userOrders.length > 0) {
+      const orderIds = userOrders.map(o => o.id)
+      const { error: orderItemsError } = await supabaseAdmin
+        .from('order_items')
+        .delete()
+        .in('order_id', orderIds)
+      
+      if (orderItemsError) {
+        console.error('Error deleting order items:', orderItemsError)
+      }
+    }
+
+    // 5. Delete orders
+    const { error: ordersError } = await supabaseAdmin
+      .from('orders')
+      .delete()
+      .eq('booker_id', userId)
+    
+    if (ordersError) {
+      console.error('Error deleting orders:', ordersError)
+    }
+
+    // 6. Delete user roles
+    const { error: rolesError } = await supabaseAdmin
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId)
+    
+    if (rolesError) {
+      console.error('Error deleting user roles:', rolesError)
+    }
+
+    // 7. Delete profile
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .delete()
+      .eq('user_id', userId)
+    
+    if (profileError) {
+      console.error('Error deleting profile:', profileError)
+    }
+
+    // 8. Finally delete the user from auth.users
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (deleteError) {
-      console.error('Error deleting user:', deleteError)
+      console.error('Error deleting user from auth:', deleteError)
       return new Response(
         JSON.stringify({ error: deleteError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
