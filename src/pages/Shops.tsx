@@ -44,20 +44,46 @@ const Shops: React.FC = () => {
 
   const fetchData = async () => {
     try {
+      // For order bookers, first get their assigned route IDs
+      let assignedRouteIds: string[] = [];
+      
+      if (!isAdmin && user) {
+        const { data: userRoutes, error: userRoutesError } = await supabase
+          .from('routes')
+          .select('id')
+          .eq('assigned_booker_id', user.id)
+          .eq('is_active', true);
+        
+        if (userRoutesError) throw userRoutesError;
+        assignedRouteIds = userRoutes?.map(r => r.id) || [];
+      }
+
       // Fetch shops with route info
-      const { data: shopsData, error: shopsError } = await supabase
+      let shopsQuery = supabase
         .from('shops')
         .select(`
           *,
           routes(name, city_id)
         `)
         .order('created_at', { ascending: false });
+      
+      // Order bookers only see shops on their assigned routes
+      if (!isAdmin && assignedRouteIds.length > 0) {
+        shopsQuery = shopsQuery.in('route_id', assignedRouteIds);
+      } else if (!isAdmin && assignedRouteIds.length === 0) {
+        // No assigned routes means no shops to show
+        setShops([]);
+        setRoutes([]);
+        setLoading(false);
+        return;
+      }
 
+      const { data: shopsData, error: shopsError } = await shopsQuery;
       if (shopsError) throw shopsError;
       setShops(shopsData || []);
 
-      // Fetch routes for dropdown
-      const { data: routesData, error: routesError } = await supabase
+      // Fetch routes for dropdown - order bookers only see their assigned routes
+      let routesQuery = supabase
         .from('routes')
         .select(`
           id,
@@ -66,7 +92,12 @@ const Shops: React.FC = () => {
         `)
         .eq('is_active', true)
         .order('name');
+      
+      if (!isAdmin && assignedRouteIds.length > 0) {
+        routesQuery = routesQuery.in('id', assignedRouteIds);
+      }
 
+      const { data: routesData, error: routesError } = await routesQuery;
       if (routesError) throw routesError;
       setRoutes(routesData || []);
     } catch (error: any) {
@@ -78,7 +109,7 @@ const Shops: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [isAdmin, user]);
 
   const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
