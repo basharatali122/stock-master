@@ -80,15 +80,15 @@ const Users: React.FC = () => {
   };
 
   const deleteUser = async (user: UserProfile) => {
-    if (!confirm(`Are you sure you want to delete "${user.full_name}"?`)) return;
+    if (!confirm(`Are you sure you want to permanently delete "${user.full_name}"? This will remove their account and they will no longer be able to log in.`)) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('user_id', user.user_id);
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: user.user_id }
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast.success('User deleted successfully');
       fetchUsers();
