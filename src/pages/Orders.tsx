@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, ShoppingCart, Loader2, X, Printer } from 'lucide-react';
+import { Plus, Search, Eye, ShoppingCart, Loader2, X, Printer, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass } from '@/lib/print';
 
@@ -61,6 +61,11 @@ const Orders: React.FC = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [editStatus, setEditStatus] = useState('');
+  const [editPaymentStatus, setEditPaymentStatus] = useState('');
+  const [editPaidAmount, setEditPaidAmount] = useState('');
 
   const [selectedShop, setSelectedShop] = useState('');
   const [orderItems, setOrderItems] = useState<{ productId: string; quantity: number; price: number; discount: number }[]>([]);
@@ -113,7 +118,7 @@ const Orders: React.FC = () => {
       // Fetch products
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id, name, price, discount_percentage')
+        .select('id, name, price, discount_percentage, stock_quantity')
         .eq('is_active', true)
         .order('name');
       if (productsError) throw productsError;
@@ -127,6 +132,28 @@ const Orders: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+  }, [isAdmin, user]);
+
+  // Real-time subscription for orders
+  useEffect(() => {
+    const channel = supabase
+      .channel('orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [isAdmin, user]);
 
   const addItemToOrder = () => {
@@ -255,6 +282,45 @@ const Orders: React.FC = () => {
   const viewOrder = (order: Order) => {
     setViewingOrder(order);
     setShowViewModal(true);
+  };
+
+  const openEditModal = (order: Order) => {
+    setEditingOrder(order);
+    setEditStatus(order.status);
+    setEditPaymentStatus(order.payment_status);
+    setEditPaidAmount(order.paid_amount?.toString() || '0');
+    setShowEditModal(true);
+  };
+
+  const handleUpdateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+
+    setSubmitting(true);
+    try {
+      const paid = parseFloat(editPaidAmount) || 0;
+      const paymentStatus = paid >= editingOrder.total_amount ? 'paid' : paid > 0 ? 'partial' : 'pending';
+
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: editStatus,
+          payment_status: editPaymentStatus === 'credit' ? 'credit' : paymentStatus,
+          paid_amount: paid,
+        })
+        .eq('id', editingOrder.id);
+
+      if (error) throw error;
+
+      toast.success('Order updated successfully');
+      setShowEditModal(false);
+      setEditingOrder(null);
+      fetchData();
+    } catch (error: any) {
+      toast.error('Failed to update order: ' + error.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const printOrder = (order: Order) => {
@@ -427,6 +493,11 @@ const Orders: React.FC = () => {
           <button onClick={() => viewOrder(item)} className="rounded-lg p-2 hover:bg-muted" title="View">
             <Eye className="h-4 w-4 text-muted-foreground" />
           </button>
+          {isAdmin && (
+            <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted" title="Edit">
+              <Edit2 className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
           <button onClick={() => printOrder(item)} className="rounded-lg p-2 hover:bg-muted" title="Print">
             <Printer className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -626,6 +697,61 @@ const Orders: React.FC = () => {
                 <div className="flex justify-between"><span>Credit:</span><span className="text-warning font-medium">{formatCurrency(viewingOrder.total_amount - viewingOrder.paid_amount)}</span></div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Order Modal (Admin Only) */}
+      {showEditModal && editingOrder && isAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-foreground">Update Order {editingOrder.order_number}</h2>
+              <button onClick={() => setShowEditModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+            </div>
+
+            <form onSubmit={handleUpdateOrder} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Order Status</label>
+                <select className="input-field" value={editStatus} onChange={(e) => setEditStatus(e.target.value)} disabled={submitting}>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Payment Status</label>
+                <select className="input-field" value={editPaymentStatus} onChange={(e) => setEditPaymentStatus(e.target.value)} disabled={submitting}>
+                  <option value="pending">Pending</option>
+                  <option value="partial">Partial</option>
+                  <option value="paid">Paid</option>
+                  <option value="credit">Credit</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Paid Amount</label>
+                <input 
+                  type="number" 
+                  className="input-field" 
+                  value={editPaidAmount} 
+                  onChange={(e) => setEditPaidAmount(e.target.value)} 
+                  disabled={submitting}
+                  max={editingOrder.total_amount}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Total: Rs. {editingOrder.total_amount.toLocaleString()}</p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="button" onClick={() => setShowEditModal(false)} className="btn-secondary" disabled={submitting}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Update Order
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

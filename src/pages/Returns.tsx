@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, RotateCcw, Loader2, X, Printer } from 'lucide-react';
+import { Plus, Search, Eye, RotateCcw, Loader2, X, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass } from '@/lib/print';
 
@@ -42,6 +42,7 @@ const Returns: React.FC = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingReturn, setViewingReturn] = useState<Return | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [updatingReturnId, setUpdatingReturnId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     shop_id: '',
@@ -99,6 +100,47 @@ const Returns: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [isAdmin, user]);
+
+  // Real-time subscription for returns
+  useEffect(() => {
+    const channel = supabase
+      .channel('returns-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'returns'
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin, user]);
+
+  const handleUpdateReturnStatus = async (returnId: string, newStatus: string) => {
+    setUpdatingReturnId(returnId);
+    try {
+      const { error } = await supabase
+        .from('returns')
+        .update({ status: newStatus })
+        .eq('id', returnId);
+
+      if (error) throw error;
+
+      toast.success(`Return ${newStatus === 'approved' ? 'approved - stock restored' : 'status updated'}`);
+      fetchData();
+    } catch (error: any) {
+      toast.error('Failed to update return: ' + error.message);
+    } finally {
+      setUpdatingReturnId(null);
+    }
+  };
 
   const handleAddReturn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,6 +309,30 @@ const Returns: React.FC = () => {
           <button onClick={() => viewReturn(item)} className="rounded-lg p-2 hover:bg-muted" title="View">
             <Eye className="h-4 w-4 text-muted-foreground" />
           </button>
+          {isAdmin && item.status === 'pending' && (
+            <>
+              <button 
+                onClick={() => handleUpdateReturnStatus(item.id, 'approved')} 
+                className="rounded-lg p-2 hover:bg-success/20" 
+                title="Approve & Restore Stock"
+                disabled={updatingReturnId === item.id}
+              >
+                {updatingReturnId === item.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-success" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 text-success" />
+                )}
+              </button>
+              <button 
+                onClick={() => handleUpdateReturnStatus(item.id, 'rejected')} 
+                className="rounded-lg p-2 hover:bg-destructive/20" 
+                title="Reject"
+                disabled={updatingReturnId === item.id}
+              >
+                <XCircle className="h-4 w-4 text-destructive" />
+              </button>
+            </>
+          )}
           <button onClick={() => printReturn(item)} className="rounded-lg p-2 hover:bg-muted" title="Print">
             <Printer className="h-4 w-4 text-muted-foreground" />
           </button>
