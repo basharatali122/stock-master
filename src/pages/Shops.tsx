@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Edit, Trash2, Store, Phone, Loader2 } from 'lucide-react';
+import ShopHistory from '@/components/ShopHistory';
+import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Shop {
@@ -33,6 +34,7 @@ const Shops: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedShopForHistory, setSelectedShopForHistory] = useState<Shop | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -275,6 +277,15 @@ const Shops: React.FC = () => {
       header: 'Actions',
       render: (item: Shop) => (
         <div className="flex gap-2">
+          {isAdmin && (
+            <button 
+              onClick={() => setSelectedShopForHistory(item)} 
+              className="rounded-lg p-2 hover:bg-primary/10"
+              title="View History"
+            >
+              <Eye className="h-4 w-4 text-primary" />
+            </button>
+          )}
           <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted">
             <Edit className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -536,6 +547,15 @@ const Shops: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Shop History Modal */}
+      {selectedShopForHistory && (
+        <ShopHistory
+          shopId={selectedShopForHistory.id}
+          shopName={selectedShopForHistory.name}
+          onClose={() => setSelectedShopForHistory(null)}
+        />
       )}
     </div>
   );
