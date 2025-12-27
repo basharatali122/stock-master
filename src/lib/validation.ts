@@ -58,7 +58,11 @@ export const advanceSchema = z.object({
 });
 
 // Helper function to validate and return result
-export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { success: true; data: T } | { success: false; error: string } {
+export type ValidationResult<T> = 
+  | { success: true; data: T; error?: undefined }
+  | { success: false; error: string; data?: undefined };
+
+export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): ValidationResult<T> {
   const result = schema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import { Plus, Search, Edit, Trash2, Package, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { productSchema, validateInput } from '@/lib/validation';
 
 interface Product {
   id: string;
@@ -59,19 +60,31 @@ const Products: React.FC = () => {
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.category || !formData.price) {
-      toast.error('Please fill all required fields');
+    
+    // Validate input
+    const validationResult = validateInput(productSchema, {
+      name: formData.name,
+      category: formData.category,
+      price: parseFloat(formData.price) || 0,
+      stock_quantity: parseInt(formData.stock_quantity) || 0,
+      discount_percentage: parseFloat(formData.discount_percentage) || 0,
+    });
+    
+    if (!validationResult.success) {
+      toast.error(validationResult.error);
       return;
     }
+    
+    const validatedData = validationResult.data;
 
     setSubmitting(true);
     try {
       const { error } = await supabase.from('products').insert({
-        name: formData.name.trim(),
-        category: formData.category,
-        price: parseFloat(formData.price),
-        stock_quantity: parseInt(formData.stock_quantity) || 0,
-        discount_percentage: parseFloat(formData.discount_percentage) || 0,
+        name: validatedData.name,
+        category: validatedData.category,
+        price: validatedData.price,
+        stock_quantity: validatedData.stock_quantity,
+        discount_percentage: validatedData.discount_percentage,
       });
 
       if (error) throw error;
@@ -89,21 +102,37 @@ const Products: React.FC = () => {
 
   const handleEditProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct || !formData.name || !formData.category || !formData.price) {
-      toast.error('Please fill all required fields');
+    if (!editingProduct) {
+      toast.error('No product selected for editing');
       return;
     }
+
+    // Validate input
+    const validationResult = validateInput(productSchema, {
+      name: formData.name,
+      category: formData.category,
+      price: parseFloat(formData.price) || 0,
+      stock_quantity: parseInt(formData.stock_quantity) || 0,
+      discount_percentage: parseFloat(formData.discount_percentage) || 0,
+    });
+    
+    if (!validationResult.success) {
+      toast.error(validationResult.error);
+      return;
+    }
+    
+    const validatedData = validationResult.data;
 
     setSubmitting(true);
     try {
       const { error } = await supabase
         .from('products')
         .update({
-          name: formData.name.trim(),
-          category: formData.category,
-          price: parseFloat(formData.price),
-          stock_quantity: parseInt(formData.stock_quantity) || 0,
-          discount_percentage: parseFloat(formData.discount_percentage) || 0,
+          name: validatedData.name,
+          category: validatedData.category,
+          price: validatedData.price,
+          stock_quantity: validatedData.stock_quantity,
+          discount_percentage: validatedData.discount_percentage,
         })
         .eq('id', editingProduct.id);
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Package, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { loginSchema, registerSchema, validateInput } from '@/lib/validation';
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -31,9 +32,17 @@ const Auth: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate input
+    const validation = validateInput(loginSchema, { email: loginEmail, password: loginPassword });
+    if (!validation.success) {
+      setError(validation.error);
+      return;
+    }
+    
     setIsLoading(true);
 
-    const result = await login(loginEmail, loginPassword);
+    const result = await login(validation.data.email, validation.data.password);
     
     if (result.success) {
       navigate('/dashboard');
@@ -48,13 +57,27 @@ const Auth: React.FC = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setIsLoading(true);
 
-    const result = await register({
+    // Validate input
+    const validationResult = validateInput(registerSchema, {
       name: registerName,
       email: registerEmail,
       phone: registerPhone,
       password: registerPassword,
+    });
+    if (!validationResult.success) {
+      setError(validationResult.error);
+      return;
+    }
+    
+    const validatedData = validationResult.data;
+    setIsLoading(true);
+
+    const result = await register({
+      name: validatedData.name,
+      email: validatedData.email,
+      phone: validatedData.phone,
+      password: validatedData.password,
     });
 
     if (result.success) {

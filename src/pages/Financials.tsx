@@ -5,6 +5,7 @@ import StatCard from '@/components/ui/StatCard';
 import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users, Loader2, Printer, Edit, Plus, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint } from '@/lib/print';
+import { financialSchema, advanceSchema, validateInput } from '@/lib/validation';
 import {
   Dialog,
   DialogContent,
@@ -145,18 +146,27 @@ const Financials: React.FC = () => {
   const handleSaveFinancials = async () => {
     if (!selectedBooker) return;
     
+    const salary = parseFloat(salaryAmount) || 0;
+    const advance = parseFloat(advanceAmount) || 0;
+
+    // Validate input
+    const validationResult = validateInput(financialSchema, { salary, advance });
+    if (!validationResult.success) {
+      toast.error(validationResult.error);
+      return;
+    }
+    
+    const validatedData = validationResult.data;
+
     setIsSaving(true);
     try {
-      const salary = parseFloat(salaryAmount) || 0;
-      const advance = parseFloat(advanceAmount) || 0;
-
       if (selectedBooker.financial_record_id) {
         // Update existing record
         const { error } = await supabase
           .from('booker_financials')
           .update({
-            salary,
-            advance_taken: advance,
+            salary: validatedData.salary,
+            advance_taken: validatedData.advance,
             updated_at: new Date().toISOString(),
           })
           .eq('id', selectedBooker.financial_record_id);
@@ -168,8 +178,8 @@ const Financials: React.FC = () => {
           .from('booker_financials')
           .insert({
             booker_id: selectedBooker.booker_id,
-            salary,
-            advance_taken: advance,
+            salary: validatedData.salary,
+            advance_taken: validatedData.advance,
           });
 
         if (error) throw error;
@@ -188,15 +198,20 @@ const Financials: React.FC = () => {
   const handleAddAdvanceAmount = async () => {
     if (!selectedBooker) return;
     
-    const addAmount = parseFloat(advanceAmount);
-    if (!addAmount || addAmount <= 0) {
-      toast.error('Please enter a valid advance amount');
+    const addAmount = parseFloat(advanceAmount) || 0;
+    
+    // Validate input
+    const validationResult = validateInput(advanceSchema, { amount: addAmount, note: advanceNote });
+    if (!validationResult.success) {
+      toast.error(validationResult.error);
       return;
     }
     
+    const validatedData = validationResult.data;
+    
     setIsSaving(true);
     try {
-      const newAdvance = selectedBooker.advance_taken + addAmount;
+      const newAdvance = selectedBooker.advance_taken + validatedData.amount;
 
       if (selectedBooker.financial_record_id) {
         const { error } = await supabase
@@ -214,13 +229,13 @@ const Financials: React.FC = () => {
           .insert({
             booker_id: selectedBooker.booker_id,
             salary: 0,
-            advance_taken: addAmount,
+            advance_taken: validatedData.amount,
           });
 
         if (error) throw error;
       }
 
-      toast.success(`Advance of Rs. ${addAmount.toLocaleString()} added for ${selectedBooker.booker_name}`);
+      toast.success(`Advance of Rs. ${validatedData.amount.toLocaleString()} added for ${selectedBooker.booker_name}`);
       setIsAddAdvanceModalOpen(false);
       fetchFinancials();
     } catch (error: any) {
@@ -233,20 +248,25 @@ const Financials: React.FC = () => {
   const handleDeductAdvance = async () => {
     if (!selectedBooker) return;
     
-    const deductAmount = parseFloat(advanceAmount);
-    if (!deductAmount || deductAmount <= 0) {
-      toast.error('Please enter a valid amount to deduct');
+    const deductAmount = parseFloat(advanceAmount) || 0;
+    
+    // Validate input
+    const validationResult = validateInput(advanceSchema, { amount: deductAmount });
+    if (!validationResult.success) {
+      toast.error(validationResult.error);
       return;
     }
+    
+    const validatedData = validationResult.data;
 
-    if (deductAmount > selectedBooker.advance_taken) {
+    if (validatedData.amount > selectedBooker.advance_taken) {
       toast.error('Deduction amount cannot exceed current advance balance');
       return;
     }
     
     setIsSaving(true);
     try {
-      const newAdvance = selectedBooker.advance_taken - deductAmount;
+      const newAdvance = selectedBooker.advance_taken - validatedData.amount;
 
       if (selectedBooker.financial_record_id) {
         const { error } = await supabase
@@ -260,7 +280,7 @@ const Financials: React.FC = () => {
         if (error) throw error;
       }
 
-      toast.success(`Advance of Rs. ${deductAmount.toLocaleString()} deducted from ${selectedBooker.booker_name}`);
+      toast.success(`Advance of Rs. ${validatedData.amount.toLocaleString()} deducted from ${selectedBooker.booker_name}`);
       setIsAddAdvanceModalOpen(false);
       fetchFinancials();
     } catch (error: any) {

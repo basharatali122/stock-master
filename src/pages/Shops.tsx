@@ -6,6 +6,7 @@ import ShopHistory from '@/components/ShopHistory';
 import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint } from '@/lib/print';
+import { shopSchema, validateInput } from '@/lib/validation';
 
 interface Shop {
   id: string;
@@ -116,19 +117,31 @@ const Shops: React.FC = () => {
 
   const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.owner_name || !formData.route_id) {
-      toast.error('Please fill all required fields');
+    
+    // Validate input
+    const validationResult = validateInput(shopSchema, {
+      name: formData.name,
+      owner_name: formData.owner_name,
+      phone: formData.phone || '',
+      address: formData.address || '',
+      route_id: formData.route_id,
+    });
+    
+    if (!validationResult.success) {
+      toast.error(validationResult.error);
       return;
     }
+    
+    const validatedData = validationResult.data;
 
     setSubmitting(true);
     try {
       const { error } = await supabase.from('shops').insert({
-        name: formData.name.trim(),
-        owner_name: formData.owner_name.trim(),
-        phone: formData.phone || null,
-        address: formData.address || null,
-        route_id: formData.route_id,
+        name: validatedData.name,
+        owner_name: validatedData.owner_name,
+        phone: validatedData.phone || null,
+        address: validatedData.address || null,
+        route_id: validatedData.route_id,
       });
 
       if (error) throw error;
@@ -146,21 +159,37 @@ const Shops: React.FC = () => {
 
   const handleEditShop = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingShop || !formData.name || !formData.owner_name || !formData.route_id) {
-      toast.error('Please fill all required fields');
+    if (!editingShop) {
+      toast.error('No shop selected for editing');
       return;
     }
+
+    // Validate input
+    const validationResult = validateInput(shopSchema, {
+      name: formData.name,
+      owner_name: formData.owner_name,
+      phone: formData.phone || '',
+      address: formData.address || '',
+      route_id: formData.route_id,
+    });
+    
+    if (!validationResult.success) {
+      toast.error(validationResult.error);
+      return;
+    }
+    
+    const validatedData = validationResult.data;
 
     setSubmitting(true);
     try {
       const { error } = await supabase
         .from('shops')
         .update({
-          name: formData.name.trim(),
-          owner_name: formData.owner_name.trim(),
-          phone: formData.phone || null,
-          address: formData.address || null,
-          route_id: formData.route_id,
+          name: validatedData.name,
+          owner_name: validatedData.owner_name,
+          phone: validatedData.phone || null,
+          address: validatedData.address || null,
+          route_id: validatedData.route_id,
         })
         .eq('id', editingShop.id);
 
