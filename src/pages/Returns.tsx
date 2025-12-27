@@ -43,6 +43,9 @@ const Returns: React.FC = () => {
   const [viewingReturn, setViewingReturn] = useState<Return | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [updatingReturnId, setUpdatingReturnId] = useState<string | null>(null);
+  const [selectedShopFilter, setSelectedShopFilter] = useState('');
+  const [selectedReturns, setSelectedReturns] = useState<string[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const [formData, setFormData] = useState({
     shop_id: '',
@@ -140,6 +143,79 @@ const Returns: React.FC = () => {
     } finally {
       setUpdatingReturnId(null);
     }
+  };
+
+  // Bulk update all selected returns
+  const handleBulkUpdateStatus = async (newStatus: string) => {
+    if (selectedReturns.length === 0) {
+      toast.error('Please select at least one return');
+      return;
+    }
+
+    setBulkUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('returns')
+        .update({ status: newStatus })
+        .in('id', selectedReturns);
+
+      if (error) throw error;
+
+      toast.success(`${selectedReturns.length} returns ${newStatus === 'approved' ? 'approved - stock restored' : 'rejected'}`);
+      setSelectedReturns([]);
+      fetchData();
+    } catch (error: any) {
+      toast.error('Failed to update returns: ' + error.message);
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  // Bulk update all pending returns for a specific shop
+  const handleBulkUpdateByShop = async (shopId: string, newStatus: string) => {
+    const shopReturns = returns.filter(r => r.shop_id === shopId && r.status === 'pending');
+    if (shopReturns.length === 0) {
+      toast.error('No pending returns for this shop');
+      return;
+    }
+
+    setBulkUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('returns')
+        .update({ status: newStatus })
+        .eq('shop_id', shopId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      toast.success(`All ${shopReturns.length} pending returns for this shop ${newStatus === 'approved' ? 'approved' : 'rejected'}`);
+      fetchData();
+    } catch (error: any) {
+      toast.error('Failed to update returns: ' + error.message);
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  // Toggle selection of a return
+  const toggleReturnSelection = (returnId: string) => {
+    setSelectedReturns(prev => 
+      prev.includes(returnId) 
+        ? prev.filter(id => id !== returnId) 
+        : [...prev, returnId]
+    );
+  };
+
+  // Select all pending returns
+  const selectAllPendingReturns = () => {
+    const pendingIds = filteredReturns.filter(r => r.status === 'pending').map(r => r.id);
+    setSelectedReturns(pendingIds);
+  };
+
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedReturns([]);
   };
 
   const handleAddReturn = async (e: React.FormEvent) => {
@@ -251,11 +327,22 @@ const Returns: React.FC = () => {
     printContent(content, 'Returns Report');
   };
 
-  const filteredReturns = returns.filter(
-    (ret) =>
+  const filteredReturns = returns.filter((ret) => {
+    const matchesSearch = 
       ret.shops?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ret.products?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      ret.products?.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesShop = !selectedShopFilter || ret.shop_id === selectedShopFilter;
+    return matchesSearch && matchesShop;
+  });
+
+  // Get unique shops with pending returns
+  const shopsWithPendingReturns = [...new Set(
+    returns.filter(r => r.status === 'pending').map(r => r.shop_id)
+  )].map(shopId => {
+    const shop = shops.find(s => s.id === shopId);
+    const pendingCount = returns.filter(r => r.shop_id === shopId && r.status === 'pending').length;
+    return { id: shopId, name: shop?.name || 'Unknown', pendingCount };
+  });
 
   const formatCurrency = (amount: number) => `Rs. ${amount?.toLocaleString() || 0}`;
 
@@ -266,6 +353,27 @@ const Returns: React.FC = () => {
   const totalReturnsValue = returns.reduce((acc, ret) => acc + calculateReturnValue(ret), 0);
 
   const columns = [
+    // Selection column for admins
+    ...(isAdmin ? [{
+      key: 'select',
+      header: () => (
+        <input
+          type="checkbox"
+          checked={selectedReturns.length > 0 && selectedReturns.length === filteredReturns.filter(r => r.status === 'pending').length}
+          onChange={(e) => e.target.checked ? selectAllPendingReturns() : clearSelection()}
+          className="h-4 w-4 rounded border-border"
+          title="Select all pending"
+        />
+      ),
+      render: (item: Return) => item.status === 'pending' ? (
+        <input
+          type="checkbox"
+          checked={selectedReturns.includes(item.id)}
+          onChange={() => toggleReturnSelection(item.id)}
+          className="h-4 w-4 rounded border-border"
+        />
+      ) : null,
+    }] : []),
     {
       key: 'id',
       header: 'Return ID',
@@ -370,10 +478,78 @@ const Returns: React.FC = () => {
         </div>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input type="text" placeholder="Search returns..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="input-field pl-10" />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input type="text" placeholder="Search returns..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="input-field pl-10" />
+        </div>
+        
+        {isAdmin && (
+          <div className="flex flex-wrap gap-2">
+            <select 
+              className="input-field min-w-[200px]" 
+              value={selectedShopFilter} 
+              onChange={(e) => setSelectedShopFilter(e.target.value)}
+            >
+              <option value="">All Shops</option>
+              {shopsWithPendingReturns.map((shop) => (
+                <option key={shop.id} value={shop.id}>{shop.name} ({shop.pendingCount} pending)</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
+
+      {/* Bulk Actions for Admin */}
+      {isAdmin && selectedReturns.length > 0 && (
+        <div className="flex items-center gap-4 rounded-lg bg-primary/10 p-4">
+          <span className="text-sm font-medium">{selectedReturns.length} returns selected</span>
+          <button 
+            onClick={() => handleBulkUpdateStatus('approved')} 
+            className="btn-primary text-sm"
+            disabled={bulkUpdating}
+          >
+            {bulkUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+            Approve All Selected
+          </button>
+          <button 
+            onClick={() => handleBulkUpdateStatus('rejected')} 
+            className="btn-secondary text-sm"
+            disabled={bulkUpdating}
+          >
+            <XCircle className="mr-2 h-4 w-4" />
+            Reject All Selected
+          </button>
+          <button onClick={clearSelection} className="btn-ghost text-sm">
+            Clear Selection
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Actions by Shop */}
+      {isAdmin && selectedShopFilter && (
+        <div className="flex items-center gap-4 rounded-lg bg-accent/10 p-4">
+          <span className="text-sm font-medium">
+            Bulk actions for: {shops.find(s => s.id === selectedShopFilter)?.name}
+          </span>
+          <button 
+            onClick={() => handleBulkUpdateByShop(selectedShopFilter, 'approved')} 
+            className="btn-primary text-sm"
+            disabled={bulkUpdating}
+          >
+            {bulkUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+            Approve All Pending
+          </button>
+          <button 
+            onClick={() => handleBulkUpdateByShop(selectedShopFilter, 'rejected')} 
+            className="btn-secondary text-sm"
+            disabled={bulkUpdating}
+          >
+            <XCircle className="mr-2 h-4 w-4" />
+            Reject All Pending
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="stat-card"><p className="text-sm text-muted-foreground">Total Returns</p><p className="mt-1 text-2xl font-bold">{returns.length}</p></div>
