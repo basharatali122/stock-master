@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import { Plus, Search, Eye, Loader2, Printer, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { printContent, formatCurrencyForPrint, getStatusBadgeClass } from '@/lib/print';
+import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
 import { ViewOrderModal, EditOrderModal, NewOrderModal } from '@/components/orders/OrderModals';
 import { z } from 'zod';
@@ -353,10 +353,10 @@ const Orders: React.FC = () => {
   const printOrder = useCallback((order: Order) => {
     const itemsHtml = order.order_items?.map(item => `
       <tr>
-        <td>${item.products?.name || 'N/A'}</td>
-        <td>${item.quantity}</td>
+        <td>${safeText(item.products?.name || 'N/A')}</td>
+        <td>${safeText(item.quantity)}</td>
         <td>${formatCurrencyForPrint(item.unit_price)}</td>
-        <td>${item.discount_applied || 0}%</td>
+        <td>${safeText(item.discount_applied || 0)}%</td>
         <td>${formatCurrencyForPrint(item.total_price)}</td>
       </tr>
     `).join('') || '<tr><td colspan="5">No items</td></tr>';
@@ -367,12 +367,12 @@ const Orders: React.FC = () => {
         <p>Order Invoice</p>
       </div>
       <div class="info-grid">
-        <div class="info-item"><span class="info-label">Order Number:</span><span class="info-value">${order.order_number}</span></div>
-        <div class="info-item"><span class="info-label">Date:</span><span class="info-value">${new Date(order.created_at).toLocaleDateString()}</span></div>
-        <div class="info-item"><span class="info-label">Shop:</span><span class="info-value">${order.shops?.name || 'N/A'}</span></div>
-        <div class="info-item"><span class="info-label">Route:</span><span class="info-value">${order.shops?.routes?.name || 'N/A'}</span></div>
-        <div class="info-item"><span class="info-label">Order Booker:</span><span class="info-value">${order.booker_name || 'N/A'}</span></div>
-        <div class="info-item"><span class="info-label">Status:</span><span class="badge ${getStatusBadgeClass(order.status)}">${order.status}</span></div>
+        <div class="info-item"><span class="info-label">Order Number:</span><span class="info-value">${safeText(order.order_number)}</span></div>
+        <div class="info-item"><span class="info-label">Date:</span><span class="info-value">${safeText(new Date(order.created_at).toLocaleDateString())}</span></div>
+        <div class="info-item"><span class="info-label">Shop:</span><span class="info-value">${safeText(order.shops?.name || 'N/A')}</span></div>
+        <div class="info-item"><span class="info-label">Route:</span><span class="info-value">${safeText(order.shops?.routes?.name || 'N/A')}</span></div>
+        <div class="info-item"><span class="info-label">Order Booker:</span><span class="info-value">${safeText(order.booker_name || 'N/A')}</span></div>
+        <div class="info-item"><span class="info-label">Status:</span><span class="badge ${getStatusBadgeClass(order.status)}">${safeText(order.status)}</span></div>
       </div>
       <table>
         <thead>
@@ -399,13 +399,13 @@ const Orders: React.FC = () => {
   const printAllOrders = useCallback(() => {
     const ordersHtml = filteredOrders.map(order => `
       <tr>
-        <td>${order.order_number}</td>
-        <td>${order.shops?.name || 'N/A'}</td>
-        <td>${order.booker_name || 'N/A'}</td>
+        <td>${safeText(order.order_number)}</td>
+        <td>${safeText(order.shops?.name || 'N/A')}</td>
+        <td>${safeText(order.booker_name || 'N/A')}</td>
         <td>${formatCurrencyForPrint(order.total_amount)}</td>
         <td>${formatCurrencyForPrint(order.paid_amount)}</td>
-        <td><span class="badge ${getStatusBadgeClass(order.status)}">${order.status}</span></td>
-        <td><span class="badge ${getStatusBadgeClass(order.payment_status)}">${order.payment_status}</span></td>
+        <td><span class="badge ${getStatusBadgeClass(order.status)}">${safeText(order.status)}</span></td>
+        <td><span class="badge ${getStatusBadgeClass(order.payment_status)}">${safeText(order.payment_status)}</span></td>
       </tr>
     `).join('');
 
@@ -415,7 +415,7 @@ const Orders: React.FC = () => {
         <p>Orders Report</p>
       </div>
       <div class="info-grid">
-        <div class="info-item"><span class="info-label">Total Orders:</span><span class="info-value">${filteredOrders.length}</span></div>
+        <div class="info-item"><span class="info-label">Total Orders:</span><span class="info-value">${safeText(filteredOrders.length)}</span></div>
         <div class="info-item"><span class="info-label">Total Sales:</span><span class="info-value">${formatCurrencyForPrint(stats.totalSales)}</span></div>
         <div class="info-item"><span class="info-label">Cash Received:</span><span class="info-value">${formatCurrencyForPrint(stats.totalPaid)}</span></div>
         <div class="info-item"><span class="info-label">Credit/Pending:</span><span class="info-value">${formatCurrencyForPrint(stats.totalCredit)}</span></div>
