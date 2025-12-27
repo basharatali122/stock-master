@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
 import { ViewOrderModal, EditOrderModal, NewOrderModal } from '@/components/orders/OrderModals';
+import { z } from 'zod';
 
 interface OrderItem {
   id: string;
@@ -146,8 +147,16 @@ const Orders: React.FC = () => {
   const [paidAmount, setPaidAmount] = useState('');
 
   const addItemToOrder = useCallback(() => {
-    if (!selectedProduct || !quantity || parseInt(quantity) < 1) {
-      toast.error('Please select a product and quantity');
+    const quantityNum = parseInt(quantity) || 0;
+    
+    // Validate quantity
+    if (!selectedProduct) {
+      toast.error('Please select a product');
+      return;
+    }
+    
+    if (quantityNum < 1 || quantityNum > 10000) {
+      toast.error('Quantity must be between 1 and 10,000');
       return;
     }
 
@@ -158,12 +167,17 @@ const Orders: React.FC = () => {
       const existingIndex = prev.findIndex(i => i.productId === selectedProduct);
       if (existingIndex >= 0) {
         const updated = [...prev];
-        updated[existingIndex].quantity += parseInt(quantity);
+        const newQuantity = updated[existingIndex].quantity + quantityNum;
+        if (newQuantity > 10000) {
+          toast.error('Total quantity for this product exceeds 10,000');
+          return prev;
+        }
+        updated[existingIndex].quantity = newQuantity;
         return updated;
       }
       return [...prev, {
         productId: selectedProduct,
-        quantity: parseInt(quantity),
+        quantity: quantityNum,
         price: product.price,
         discount: product.discount_percentage || 0
       }];
@@ -186,8 +200,23 @@ const Orders: React.FC = () => {
 
   const handleCreateOrder = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedShop || orderItems.length === 0) {
-      toast.error('Please select a shop and add items');
+    
+    // Validate shop selection
+    if (!selectedShop) {
+      toast.error('Please select a shop');
+      return;
+    }
+    
+    // Validate UUID format
+    const uuidSchema = z.string().uuid();
+    const shopValidation = uuidSchema.safeParse(selectedShop);
+    if (!shopValidation.success) {
+      toast.error('Invalid shop selected');
+      return;
+    }
+    
+    if (orderItems.length === 0) {
+      toast.error('Please add at least one item to the order');
       return;
     }
 
@@ -196,10 +225,22 @@ const Orders: React.FC = () => {
       return;
     }
 
+    // Validate paid amount
+    const total = calculateTotal();
+    const paid = paymentType === 'paid' ? total : (parseFloat(paidAmount) || 0);
+    
+    if (paid < 0) {
+      toast.error('Paid amount cannot be negative');
+      return;
+    }
+    
+    if (paid > total * 2) {
+      toast.error('Paid amount seems too high');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const total = calculateTotal();
-      const paid = paymentType === 'paid' ? total : (parseFloat(paidAmount) || 0);
       const paymentStatus = paid >= total ? 'paid' : paid > 0 ? 'partial' : 'pending';
 
       const orderNumber = `ORD-${Date.now()}`;
