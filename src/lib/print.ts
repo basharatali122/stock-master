@@ -1,5 +1,27 @@
 // Print utility for generating printable reports
 
+/**
+ * Escapes HTML special characters to prevent XSS attacks
+ */
+export const escapeHtml = (unsafe: string): string => {
+  if (!unsafe) return '';
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+/**
+ * Creates a safe text node for use in print content
+ * Use this for any user-provided content
+ */
+export const safeText = (text: string | number | null | undefined): string => {
+  if (text === null || text === undefined) return '';
+  return escapeHtml(String(text));
+};
+
 export const printContent = (content: string, title: string) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
@@ -7,11 +29,15 @@ export const printContent = (content: string, title: string) => {
     return;
   }
 
+  // Escape the title to prevent XSS
+  const safeTitle = escapeHtml(title);
+  const generatedDate = escapeHtml(new Date().toLocaleString());
+
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${title}</title>
+      <title>${safeTitle}</title>
       <style>
         * {
           margin: 0;
@@ -121,7 +147,7 @@ export const printContent = (content: string, title: string) => {
     <body>
       ${content}
       <div class="footer">
-        <p>Generated on ${new Date().toLocaleString()} | AR Traders Distribution System</p>
+        <p>Generated on ${generatedDate} | AR Traders Distribution System</p>
       </div>
       <script>
         window.onload = function() {

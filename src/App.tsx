@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Products from "@/pages/Products";
@@ -36,16 +37,40 @@ const App = () => (
             {/* Protected Routes */}
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/cities" element={<Cities />} />
-              <Route path="/routes" element={<RoutesPage />} />
+              
+              {/* Admin-only routes */}
+              <Route path="/cities" element={
+                <ProtectedRoute requireAdmin>
+                  <Cities />
+                </ProtectedRoute>
+              } />
+              <Route path="/routes" element={
+                <ProtectedRoute requireAdmin>
+                  <RoutesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/users" element={
+                <ProtectedRoute requireAdmin>
+                  <Users />
+                </ProtectedRoute>
+              } />
+              <Route path="/financials" element={
+                <ProtectedRoute requireAdmin>
+                  <Financials />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute requireAdmin>
+                  <Reports />
+                </ProtectedRoute>
+              } />
+              
+              {/* Available to all authenticated users */}
               <Route path="/my-routes" element={<MyRoutes />} />
               <Route path="/shops" element={<Shops />} />
               <Route path="/products" element={<Products />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/returns" element={<Returns />} />
-              <Route path="/users" element={<Users />} />
-              <Route path="/financials" element={<Financials />} />
-              <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             
