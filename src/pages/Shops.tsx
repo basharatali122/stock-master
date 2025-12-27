@@ -231,7 +231,7 @@ const Shops: React.FC = () => {
 
   const handlePrintPendingCredits = async () => {
     try {
-      // Fetch all orders with pending payment (credit/partial) along with shop and route info
+      // Fetch all orders with pending payment (credit/partial/pending) along with shop and route info
       const { data: ordersWithDues, error } = await supabase
         .from('orders')
         .select(`
@@ -248,7 +248,7 @@ const Shops: React.FC = () => {
             routes!inner(name)
           )
         `)
-        .in('payment_status', ['credit', 'partial'])
+        .in('payment_status', ['credit', 'partial', 'pending'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
