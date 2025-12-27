@@ -2,9 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import StatCard from '@/components/ui/StatCard';
-import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users, Loader2, Printer } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users, Loader2, Printer, Edit, Plus, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint } from '@/lib/print';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface BookerFinancials {
   booker_id: string;
@@ -15,12 +32,29 @@ interface BookerFinancials {
   pending_amount: number;
   salary: number;
   advance_taken: number;
+  financial_record_id?: string;
+}
+
+interface BookerProfile {
+  user_id: string;
+  full_name: string;
 }
 
 const Financials: React.FC = () => {
   const [financials, setFinancials] = useState<BookerFinancials[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [allBookers, setAllBookers] = useState<BookerProfile[]>([]);
+  
+  // Modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddAdvanceModalOpen, setIsAddAdvanceModalOpen] = useState(false);
+  const [selectedBooker, setSelectedBooker] = useState<BookerFinancials | null>(null);
+  const [selectedBookerId, setSelectedBookerId] = useState<string>('');
+  const [salaryAmount, setSalaryAmount] = useState('');
+  const [advanceAmount, setAdvanceAmount] = useState('');
+  const [advanceNote, setAdvanceNote] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchFinancials = async () => {
     try {
@@ -31,6 +65,8 @@ const Financials: React.FC = () => {
         .eq('status', 'approved');
 
       if (profilesError) throw profilesError;
+      
+      setAllBookers(profiles || []);
 
       // Get orders grouped by booker
       const { data: orders, error: ordersError } = await supabase
@@ -76,10 +112,11 @@ const Financials: React.FC = () => {
         if (bookerStats[fin.booker_id]) {
           bookerStats[fin.booker_id].salary = fin.salary || 0;
           bookerStats[fin.booker_id].advance_taken = fin.advance_taken || 0;
+          bookerStats[fin.booker_id].financial_record_id = fin.id;
         }
       });
 
-      setFinancials(Object.values(bookerStats).filter(b => b.total_orders > 0 || b.salary > 0 || b.advance_taken > 0));
+      setFinancials(Object.values(bookerStats));
     } catch (error: any) {
       toast.error('Failed to load financials: ' + error.message);
     } finally {
@@ -91,6 +128,148 @@ const Financials: React.FC = () => {
     fetchFinancials();
   }, []);
 
+  const handleEditFinancials = (booker: BookerFinancials) => {
+    setSelectedBooker(booker);
+    setSalaryAmount(booker.salary.toString());
+    setAdvanceAmount(booker.advance_taken.toString());
+    setIsEditModalOpen(true);
+  };
+
+  const handleAddAdvance = (booker: BookerFinancials) => {
+    setSelectedBooker(booker);
+    setAdvanceAmount('');
+    setAdvanceNote('');
+    setIsAddAdvanceModalOpen(true);
+  };
+
+  const handleSaveFinancials = async () => {
+    if (!selectedBooker) return;
+    
+    setIsSaving(true);
+    try {
+      const salary = parseFloat(salaryAmount) || 0;
+      const advance = parseFloat(advanceAmount) || 0;
+
+      if (selectedBooker.financial_record_id) {
+        // Update existing record
+        const { error } = await supabase
+          .from('booker_financials')
+          .update({
+            salary,
+            advance_taken: advance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedBooker.financial_record_id);
+
+        if (error) throw error;
+      } else {
+        // Create new record
+        const { error } = await supabase
+          .from('booker_financials')
+          .insert({
+            booker_id: selectedBooker.booker_id,
+            salary,
+            advance_taken: advance,
+          });
+
+        if (error) throw error;
+      }
+
+      toast.success('Financials updated successfully');
+      setIsEditModalOpen(false);
+      fetchFinancials();
+    } catch (error: any) {
+      toast.error('Failed to update financials: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddAdvanceAmount = async () => {
+    if (!selectedBooker) return;
+    
+    const addAmount = parseFloat(advanceAmount);
+    if (!addAmount || addAmount <= 0) {
+      toast.error('Please enter a valid advance amount');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const newAdvance = selectedBooker.advance_taken + addAmount;
+
+      if (selectedBooker.financial_record_id) {
+        const { error } = await supabase
+          .from('booker_financials')
+          .update({
+            advance_taken: newAdvance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedBooker.financial_record_id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('booker_financials')
+          .insert({
+            booker_id: selectedBooker.booker_id,
+            salary: 0,
+            advance_taken: addAmount,
+          });
+
+        if (error) throw error;
+      }
+
+      toast.success(`Advance of Rs. ${addAmount.toLocaleString()} added for ${selectedBooker.booker_name}`);
+      setIsAddAdvanceModalOpen(false);
+      fetchFinancials();
+    } catch (error: any) {
+      toast.error('Failed to add advance: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeductAdvance = async () => {
+    if (!selectedBooker) return;
+    
+    const deductAmount = parseFloat(advanceAmount);
+    if (!deductAmount || deductAmount <= 0) {
+      toast.error('Please enter a valid amount to deduct');
+      return;
+    }
+
+    if (deductAmount > selectedBooker.advance_taken) {
+      toast.error('Deduction amount cannot exceed current advance balance');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const newAdvance = selectedBooker.advance_taken - deductAmount;
+
+      if (selectedBooker.financial_record_id) {
+        const { error } = await supabase
+          .from('booker_financials')
+          .update({
+            advance_taken: newAdvance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedBooker.financial_record_id);
+
+        if (error) throw error;
+      }
+
+      toast.success(`Advance of Rs. ${deductAmount.toLocaleString()} deducted from ${selectedBooker.booker_name}`);
+      setIsAddAdvanceModalOpen(false);
+      fetchFinancials();
+    } catch (error: any) {
+      toast.error('Failed to deduct advance: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const filteredFinancials = financials.filter((booker) =>
     booker.booker_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -101,6 +280,7 @@ const Financials: React.FC = () => {
   const totalCredit = financials.reduce((acc, b) => acc + b.total_credit_given, 0);
   const totalPending = financials.reduce((acc, b) => acc + b.pending_amount, 0);
   const totalAdvance = financials.reduce((acc, b) => acc + b.advance_taken, 0);
+  const totalSalary = financials.reduce((acc, b) => acc + b.salary, 0);
 
   const columns = [
     {
@@ -144,15 +324,55 @@ const Financials: React.FC = () => {
     {
       key: 'salary',
       header: 'Salary',
-      render: (item: BookerFinancials) => formatCurrency(item.salary),
+      render: (item: BookerFinancials) => (
+        <span className="font-medium">{formatCurrency(item.salary)}</span>
+      ),
     },
     {
       key: 'advance_taken',
-      header: 'Advance',
+      header: 'Advance Balance',
       render: (item: BookerFinancials) => (
-        <span className={item.advance_taken > 0 ? 'text-warning' : ''}>
+        <span className={`font-medium ${item.advance_taken > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
           {formatCurrency(item.advance_taken)}
         </span>
+      ),
+    },
+    {
+      key: 'net_payable',
+      header: 'Net Payable',
+      render: (item: BookerFinancials) => {
+        const netPayable = item.salary - item.advance_taken;
+        return (
+          <span className={`font-bold ${netPayable >= 0 ? 'text-success' : 'text-destructive'}`}>
+            {formatCurrency(netPayable)}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (item: BookerFinancials) => (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleEditFinancials(item)}
+            className="h-8"
+          >
+            <Edit className="h-3 w-3 mr-1" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => handleAddAdvance(item)}
+            className="h-8"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Advance
+          </Button>
+        </div>
       ),
     },
   ];
@@ -177,6 +397,7 @@ const Financials: React.FC = () => {
         <td>${formatCurrencyForPrint(b.pending_amount)}</td>
         <td>${formatCurrencyForPrint(b.salary)}</td>
         <td>${formatCurrencyForPrint(b.advance_taken)}</td>
+        <td>${formatCurrencyForPrint(b.salary - b.advance_taken)}</td>
       </tr>
     `).join('');
 
@@ -189,8 +410,8 @@ const Financials: React.FC = () => {
         <div class="info-item"><span class="info-label">Total Cash Collected:</span><span class="info-value">${formatCurrencyForPrint(totalCash)}</span></div>
         <div class="info-item"><span class="info-label">Total Credit Given:</span><span class="info-value">${formatCurrencyForPrint(totalCredit)}</span></div>
         <div class="info-item"><span class="info-label">Pending Payments:</span><span class="info-value">${formatCurrencyForPrint(totalPending)}</span></div>
-        <div class="info-item"><span class="info-label">Advance Given:</span><span class="info-value">${formatCurrencyForPrint(totalAdvance)}</span></div>
-        <div class="info-item"><span class="info-label">Total Sales:</span><span class="info-value">${formatCurrencyForPrint(totalCash + totalCredit)}</span></div>
+        <div class="info-item"><span class="info-label">Total Salaries:</span><span class="info-value">${formatCurrencyForPrint(totalSalary)}</span></div>
+        <div class="info-item"><span class="info-label">Total Advance:</span><span class="info-value">${formatCurrencyForPrint(totalAdvance)}</span></div>
         <div class="info-item"><span class="info-label">Collection Rate:</span><span class="info-value">${collectionRate.toFixed(1)}%</span></div>
       </div>
       <h3 style="margin: 20px 0 10px; font-size: 14px;">Order Booker Financials</h3>
@@ -204,14 +425,16 @@ const Financials: React.FC = () => {
             <th>Pending</th>
             <th>Salary</th>
             <th>Advance</th>
+            <th>Net Payable</th>
           </tr>
         </thead>
         <tbody>${bookersHtml}</tbody>
       </table>
       <div class="summary">
         <div class="summary-row"><span>Total Orders:</span><span>${financials.reduce((acc, b) => acc + b.total_orders, 0)}</span></div>
-        <div class="summary-row"><span>Total Salaries:</span><span>${formatCurrencyForPrint(financials.reduce((acc, b) => acc + b.salary, 0))}</span></div>
-        <div class="summary-row total"><span>Net Collection:</span><span>${formatCurrencyForPrint(totalCash)}</span></div>
+        <div class="summary-row"><span>Total Salaries:</span><span>${formatCurrencyForPrint(totalSalary)}</span></div>
+        <div class="summary-row"><span>Total Advance:</span><span>${formatCurrencyForPrint(totalAdvance)}</span></div>
+        <div class="summary-row total"><span>Net Payable:</span><span>${formatCurrencyForPrint(totalSalary - totalAdvance)}</span></div>
       </div>
     `;
     printContent(content, 'Financial Report');
@@ -223,7 +446,7 @@ const Financials: React.FC = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="page-title">Financial Overview</h1>
-            <p className="page-subtitle">Track cash flow, credits, and order booker financials</p>
+            <p className="page-subtitle">Track cash flow, credits, salaries and advances</p>
           </div>
           <button onClick={printFinancialReport} className="btn-secondary">
             <Printer className="mr-2 h-4 w-4" />
@@ -232,11 +455,12 @@ const Financials: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Total Cash Collected" value={formatCurrency(totalCash)} icon={Wallet} trend={{ value: collectionRate, isPositive: true }} variant="success" />
         <StatCard title="Total Credit Given" value={formatCurrency(totalCredit)} icon={CreditCard} variant="warning" />
         <StatCard title="Pending Payments" value={formatCurrency(totalPending)} icon={TrendingDown} variant="default" />
-        <StatCard title="Advance Given" value={formatCurrency(totalAdvance)} icon={DollarSign} variant="default" />
+        <StatCard title="Total Salaries" value={formatCurrency(totalSalary)} icon={Users} variant="default" />
+        <StatCard title="Advance Given" value={formatCurrency(totalAdvance)} icon={DollarSign} variant="warning" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -265,28 +489,23 @@ const Financials: React.FC = () => {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="text-lg font-semibold mb-4">Payment Status</h3>
-          <div className="space-y-3">
+          <h3 className="text-lg font-semibold mb-4">Salary & Advance Summary</h3>
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-success" />
-                <span className="text-sm">Paid</span>
+              <span className="text-muted-foreground">Total Salaries</span>
+              <span className="font-medium">{formatCurrency(totalSalary)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Total Advance Given</span>
+              <span className="font-medium text-warning">{formatCurrency(totalAdvance)}</span>
+            </div>
+            <div className="border-t border-border pt-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Net Payable</span>
+                <span className={`font-bold ${totalSalary - totalAdvance >= 0 ? 'text-success' : 'text-destructive'}`}>
+                  {formatCurrency(totalSalary - totalAdvance)}
+                </span>
               </div>
-              <span className="font-medium">{collectionRate.toFixed(0)}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full bg-success rounded-full" style={{ width: `${collectionRate}%` }} />
-            </div>
-
-            <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-warning" />
-                <span className="text-sm">Credit</span>
-              </div>
-              <span className="font-medium">{(100 - collectionRate).toFixed(0)}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full bg-warning rounded-full" style={{ width: `${100 - collectionRate}%` }} />
             </div>
           </div>
         </div>
@@ -311,8 +530,8 @@ const Financials: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Total Salaries</span>
-              <span className="font-medium">{formatCurrency(financials.reduce((acc, b) => acc + b.salary, 0))}</span>
+              <span className="text-muted-foreground">Bookers with Advance</span>
+              <span className="font-medium">{financials.filter(b => b.advance_taken > 0).length}</span>
             </div>
           </div>
         </div>
@@ -327,6 +546,151 @@ const Financials: React.FC = () => {
         <h2 className="section-title">Order Booker Financials</h2>
         <DataTable columns={columns} data={filteredFinancials} keyExtractor={(item) => item.booker_id} emptyMessage="No financial data found" />
       </div>
+
+      {/* Edit Financials Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Financial Details</DialogTitle>
+          </DialogHeader>
+          {selectedBooker && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
+                  {selectedBooker.booker_name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-medium">{selectedBooker.booker_name}</p>
+                  <p className="text-sm text-muted-foreground">{selectedBooker.total_orders} orders</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="salary">Monthly Salary (Rs.)</Label>
+                <Input
+                  id="salary"
+                  type="number"
+                  value={salaryAmount}
+                  onChange={(e) => setSalaryAmount(e.target.value)}
+                  placeholder="Enter salary amount"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="advance">Total Advance Balance (Rs.)</Label>
+                <Input
+                  id="advance"
+                  type="number"
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                  placeholder="Enter total advance"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This is the total advance taken that will be deducted from salary
+                </p>
+              </div>
+
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span>Net Payable:</span>
+                  <span className={`font-bold ${(parseFloat(salaryAmount) || 0) - (parseFloat(advanceAmount) || 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
+                    Rs. {((parseFloat(salaryAmount) || 0) - (parseFloat(advanceAmount) || 0)).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveFinancials} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Deduct Advance Modal */}
+      <Dialog open={isAddAdvanceModalOpen} onOpenChange={setIsAddAdvanceModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Advance</DialogTitle>
+          </DialogHeader>
+          {selectedBooker && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
+                  {selectedBooker.booker_name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-medium">{selectedBooker.booker_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Current Advance: <span className="font-medium text-warning">Rs. {selectedBooker.advance_taken.toLocaleString()}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="advanceAmount">Amount (Rs.)</Label>
+                <Input
+                  id="advanceAmount"
+                  type="number"
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                  placeholder="Enter amount"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="advanceNote">Note (Optional)</Label>
+                <Input
+                  id="advanceNote"
+                  value={advanceNote}
+                  onChange={(e) => setAdvanceNote(e.target.value)}
+                  placeholder="e.g., Emergency advance, Monthly deduction"
+                />
+              </div>
+
+              <div className="p-3 bg-muted rounded-lg space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span>Current Balance:</span>
+                  <span>Rs. {selectedBooker.advance_taken.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>After Adding:</span>
+                  <span className="text-warning">Rs. {(selectedBooker.advance_taken + (parseFloat(advanceAmount) || 0)).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>After Deducting:</span>
+                  <span className="text-success">Rs. {Math.max(0, selectedBooker.advance_taken - (parseFloat(advanceAmount) || 0)).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsAddAdvanceModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeductAdvance} 
+              disabled={isSaving || !advanceAmount || parseFloat(advanceAmount) <= 0}
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Deduct Advance
+            </Button>
+            <Button 
+              onClick={handleAddAdvanceAmount} 
+              disabled={isSaving || !advanceAmount || parseFloat(advanceAmount) <= 0}
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Add Advance
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
