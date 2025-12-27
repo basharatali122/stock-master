@@ -3,8 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import ShopHistory from '@/components/ShopHistory';
-import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { printContent, formatCurrencyForPrint } from '@/lib/print';
 
 interface Shop {
   id: string;
@@ -228,6 +229,119 @@ const Shops: React.FC = () => {
 
   const totalCredit = shops.reduce((acc, shop) => acc + (shop.credit_balance || 0), 0);
 
+  const handlePrintPendingCredits = async () => {
+    try {
+      // Fetch all orders with pending payment (credit/partial) along with shop and route info
+      const { data: ordersWithDues, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          created_at,
+          total_amount,
+          paid_amount,
+          payment_status,
+          shops!inner(
+            id,
+            name,
+            phone,
+            routes!inner(name)
+          )
+        `)
+        .in('payment_status', ['credit', 'partial'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!ordersWithDues || ordersWithDues.length === 0) {
+        toast.info('No pending credits found');
+        return;
+      }
+
+      const now = new Date();
+      let tableRows = '';
+      let totalPending = 0;
+
+      ordersWithDues.forEach((order: any, index: number) => {
+        const remainingBalance = (order.total_amount || 0) - (order.paid_amount || 0);
+        totalPending += remainingBalance;
+        
+        const orderDate = new Date(order.created_at);
+        const pendingDays = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        tableRows += `
+          <tr>
+            <td style="text-align: center;">${index + 1}</td>
+            <td>${orderDate.toLocaleDateString()}</td>
+            <td>${order.order_number}</td>
+            <td>${order.shops?.name || 'N/A'}</td>
+            <td>${order.shops?.routes?.name || 'N/A'}</td>
+            <td style="text-align: right;">${formatCurrencyForPrint(order.total_amount)}</td>
+            <td style="text-align: right; font-weight: bold; color: #dc2626;">${formatCurrencyForPrint(remainingBalance)}</td>
+            <td style="text-align: center;">${pendingDays} days</td>
+            <td>${order.shops?.phone || 'N/A'}</td>
+          </tr>
+        `;
+      });
+
+      const content = `
+        <div class="header">
+          <h1>Pending Credits Report</h1>
+          <p>Consolidated view of all outstanding dues</p>
+        </div>
+        
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Total Orders with Dues:</span>
+            <span class="info-value">${ordersWithDues.length}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Total Pending Amount:</span>
+            <span class="info-value" style="color: #dc2626;">${formatCurrencyForPrint(totalPending)}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Report Date:</span>
+            <span class="info-value">${now.toLocaleDateString()}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Report Time:</span>
+            <span class="info-value">${now.toLocaleTimeString()}</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: center;">Sr. No.</th>
+              <th>Delivery Date</th>
+              <th>Order ID</th>
+              <th>Shop/Client Name</th>
+              <th>Route Name</th>
+              <th style="text-align: right;">Total Amount</th>
+              <th style="text-align: right;">Remaining Balance</th>
+              <th style="text-align: center;">Pending Days</th>
+              <th>Contact No.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          <div class="summary-row total">
+            <span>Grand Total Pending:</span>
+            <span style="color: #dc2626;">${formatCurrencyForPrint(totalPending)}</span>
+          </div>
+        </div>
+      `;
+
+      printContent(content, 'Pending Credits Report');
+    } catch (error: any) {
+      toast.error('Failed to generate report: ' + error.message);
+    }
+  };
+
   const columns = [
     {
       key: 'name',
@@ -320,6 +434,12 @@ const Shops: React.FC = () => {
             <Plus className="mr-2 h-4 w-4" />
             Add Shop
           </button>
+          {isAdmin && (
+            <button onClick={handlePrintPendingCredits} className="btn-secondary">
+              <Printer className="mr-2 h-4 w-4" />
+              Print Pending Credits
+            </button>
+          )}
         </div>
       </div>
 
