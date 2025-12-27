@@ -5,6 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -64,9 +67,19 @@ Deno.serve(async (req) => {
 
     // Get the user ID to delete from the request body
     const { userId } = await req.json()
-    if (!userId) {
+    
+    // Validate userId is present and is a string
+    if (!userId || typeof userId !== 'string') {
       return new Response(
         JSON.stringify({ error: 'User ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate UUID format
+    if (!UUID_REGEX.test(userId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid user ID format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -76,6 +89,15 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Cannot delete your own account' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verify target user exists before proceeding
+    const { data: targetUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
+    if (getUserError || !targetUser?.user) {
+      return new Response(
+        JSON.stringify({ error: 'User not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -92,6 +114,9 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Track cleanup errors for logging
+    const cleanupErrors: Array<{ table: string; error: string }> = []
+
     // Clean up related data before deleting user
     // 1. Remove route assignments
     const { error: routeError } = await supabaseAdmin
@@ -100,7 +125,7 @@ Deno.serve(async (req) => {
       .eq('assigned_booker_id', userId)
     
     if (routeError) {
-      console.error('Error clearing route assignments:', routeError)
+      cleanupErrors.push({ table: 'routes', error: routeError.message })
     }
 
     // 2. Delete booker financials
@@ -110,7 +135,7 @@ Deno.serve(async (req) => {
       .eq('booker_id', userId)
     
     if (financialsError) {
-      console.error('Error deleting financials:', financialsError)
+      cleanupErrors.push({ table: 'booker_financials', error: financialsError.message })
     }
 
     // 3. Delete returns
@@ -120,7 +145,7 @@ Deno.serve(async (req) => {
       .eq('booker_id', userId)
     
     if (returnsError) {
-      console.error('Error deleting returns:', returnsError)
+      cleanupErrors.push({ table: 'returns', error: returnsError.message })
     }
 
     // 4. Delete order items for user's orders
@@ -137,7 +162,7 @@ Deno.serve(async (req) => {
         .in('order_id', orderIds)
       
       if (orderItemsError) {
-        console.error('Error deleting order items:', orderItemsError)
+        cleanupErrors.push({ table: 'order_items', error: orderItemsError.message })
       }
     }
 
@@ -148,7 +173,7 @@ Deno.serve(async (req) => {
       .eq('booker_id', userId)
     
     if (ordersError) {
-      console.error('Error deleting orders:', ordersError)
+      cleanupErrors.push({ table: 'orders', error: ordersError.message })
     }
 
     // 6. Delete user roles
@@ -158,7 +183,7 @@ Deno.serve(async (req) => {
       .eq('user_id', userId)
     
     if (rolesError) {
-      console.error('Error deleting user roles:', rolesError)
+      cleanupErrors.push({ table: 'user_roles', error: rolesError.message })
     }
 
     // 7. Delete profile
@@ -168,7 +193,12 @@ Deno.serve(async (req) => {
       .eq('user_id', userId)
     
     if (profileError) {
-      console.error('Error deleting profile:', profileError)
+      cleanupErrors.push({ table: 'profiles', error: profileError.message })
+    }
+
+    // Log any cleanup errors
+    if (cleanupErrors.length > 0) {
+      console.warn('Cleanup errors during user deletion:', cleanupErrors)
     }
 
     // 8. Finally delete the user from auth.users
