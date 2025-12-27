@@ -35,6 +35,7 @@ interface Shop {
   id: string;
   name: string;
   route_id: string;
+  credit_balance: number;
   routes?: { name: string };
 }
 
@@ -107,10 +108,10 @@ const Orders: React.FC = () => {
 
       setOrders(ordersWithBookers);
 
-      // Fetch shops
+      // Fetch shops with credit balance
       const { data: shopsData, error: shopsError } = await supabase
         .from('shops')
-        .select('id, name, route_id, routes(name)')
+        .select('id, name, route_id, credit_balance, routes(name)')
         .order('name');
       if (shopsError) throw shopsError;
       setShops(shopsData || []);
@@ -589,6 +590,35 @@ const Orders: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {/* Credit/Dues Warning */}
+              {selectedShop && (() => {
+                const shop = shops.find(s => s.id === selectedShop);
+                const creditBalance = shop?.credit_balance || 0;
+                if (creditBalance > 0) {
+                  return (
+                    <div className="rounded-lg border border-warning/50 bg-warning/10 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning/20">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-warning">Outstanding Credit</h4>
+                          <p className="text-sm text-warning/80 mt-1">
+                            This shop has pending dues of <span className="font-bold">{formatCurrency(creditBalance)}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Please consider collecting previous dues before processing new credit orders.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium">Add Products</label>
