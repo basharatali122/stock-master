@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/ui/StatCard';
 import DataTable from '@/components/ui/DataTable';
+import BookingSupplyRate from '@/components/dashboard/BookingSupplyRate';
 import {
   DollarSign,
   ShoppingCart,
@@ -342,6 +343,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Booking & Supply Rate */}
+      {isAdmin && <BookingSupplyRate />}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
