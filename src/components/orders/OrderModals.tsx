@@ -10,7 +10,7 @@ interface OrderItem {
   unit_price: number;
   discount_applied: number;
   total_price: number;
-  products?: { name: string };
+  products?: { name: string; product_code: string | null };
 }
 
 interface Order {
@@ -111,7 +111,12 @@ export const ViewOrderModal = memo(({ order, onClose }: ViewModalProps) => (
           <div className="space-y-2">
             {order.order_items?.map((item) => (
               <div key={item.id} className="flex justify-between text-sm bg-muted/50 p-2 rounded">
-                <span>{item.products?.name} x {item.quantity}</span>
+                <span>
+                  {item.products?.product_code && (
+                    <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded mr-2">{item.products.product_code}</span>
+                  )}
+                  {item.products?.name} x {item.quantity}
+                </span>
                 <span className="font-medium">{formatCurrency(item.total_price)}</span>
               </div>
             ))}

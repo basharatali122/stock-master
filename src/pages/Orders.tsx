@@ -16,7 +16,7 @@ interface OrderItem {
   unit_price: number;
   discount_applied: number;
   total_price: number;
-  products?: { name: string };
+  products?: { name: string; product_code: string | null };
 }
 
 interface Order {
@@ -363,15 +363,17 @@ const Orders: React.FC = () => {
   }, [editingOrder, editStatus, editPaymentStatus, editPaidAmount, refetch]);
 
   const printOrder = useCallback((order: Order) => {
-    const itemsHtml = order.order_items?.map(item => `
+    const itemsHtml = order.order_items?.map(item => {
+      const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
+      return `
       <tr>
-        <td>${safeText(item.products?.name || 'N/A')}</td>
+        <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
         <td>${safeText(item.quantity)}</td>
         <td>${formatCurrencyForPrint(item.unit_price)}</td>
         <td>${safeText(item.discount_applied || 0)}%</td>
         <td>${formatCurrencyForPrint(item.total_price)}</td>
       </tr>
-    `).join('') || '<tr><td colspan="5">No items</td></tr>';
+    `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
 
     const content = `
       <div class="header">

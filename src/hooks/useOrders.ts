@@ -9,7 +9,7 @@ interface OrderItem {
   unit_price: number;
   discount_applied: number;
   total_price: number;
-  products?: { name: string };
+  products?: { name: string; product_code: string | null };
 }
 
 interface Order {
@@ -63,7 +63,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
             .select(`
               *,
               shops(name, routes(name)),
-              order_items(*, products(name))
+              order_items(*, products(name, product_code))
             `)
             .order('created_at', { ascending: false });
 
@@ -152,7 +152,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       .select(`
         *,
         shops(name, routes(name)),
-        order_items(*, products(name))
+        order_items(*, products(name, product_code))
       `)
       .eq('id', orderId)
       .single();
