@@ -54,6 +54,10 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
 
   const fetchData = useCallback(async () => {
     try {
+      // Get current day of week (e.g., "Monday", "Tuesday", etc.)
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const today = days[new Date().getDay()];
+
       // Batch all queries in parallel
       const [ordersResult, shopsResult, productsResult] = await Promise.all([
         // Fetch orders with relations
@@ -73,11 +77,12 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
 
           return query;
         })(),
-        // Fetch shops from active routes only
+        // Fetch shops from active routes that have today as an active day
         supabase
           .from('shops')
-          .select('id, name, route_id, credit_balance, routes!inner(name, is_active)')
+          .select('id, name, route_id, credit_balance, routes!inner(name, is_active, active_days)')
           .eq('routes.is_active', true)
+          .contains('routes.active_days', [today])
           .order('name'),
         // Fetch products
         supabase
