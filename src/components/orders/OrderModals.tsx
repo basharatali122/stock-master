@@ -1,5 +1,7 @@
-import React, { memo } from 'react';
-import { X, Loader2, ShoppingCart } from 'lucide-react';
+import React, { memo, useEffect, useState } from 'react';
+import { X, Loader2, ShoppingCart, AlertTriangle, Calendar } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
 
 interface OrderItem {
   id: string;
@@ -46,6 +48,15 @@ interface NewOrderItem {
   quantity: number;
   price: number;
   discount: number;
+}
+
+interface PendingCredit {
+  id: string;
+  order_number: string;
+  total_amount: number;
+  paid_amount: number;
+  pending_amount: number;
+  created_at: string;
 }
 
 const formatCurrency = (amount: number) => `Rs. ${amount?.toLocaleString() || 0}`;
@@ -242,7 +253,53 @@ export const NewOrderModal = memo(({
   calculateTotal
 }: NewOrderModalProps) => {
   const selectedShopData = shops.find(s => s.id === selectedShop);
-  const creditBalance = selectedShopData?.credit_balance || 0;
+  const [pendingCredits, setPendingCredits] = useState<PendingCredit[]>([]);
+  const [loadingCredits, setLoadingCredits] = useState(false);
+  const [totalPendingDues, setTotalPendingDues] = useState(0);
+
+  // Fetch all pending credits when shop is selected
+  useEffect(() => {
+    const fetchPendingCredits = async () => {
+      if (!selectedShop) {
+        setPendingCredits([]);
+        setTotalPendingDues(0);
+        return;
+      }
+
+      setLoadingCredits(true);
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('id, order_number, total_amount, paid_amount, created_at, payment_status')
+          .eq('shop_id', selectedShop)
+          .in('payment_status', ['credit', 'partial', 'pending'])
+          .neq('status', 'cancelled')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const credits: PendingCredit[] = (data || [])
+          .map(order => ({
+            id: order.id,
+            order_number: order.order_number,
+            total_amount: order.total_amount,
+            paid_amount: order.paid_amount || 0,
+            pending_amount: order.total_amount - (order.paid_amount || 0),
+            created_at: order.created_at,
+          }))
+          .filter(order => order.pending_amount > 0);
+
+        setPendingCredits(credits);
+        setTotalPendingDues(credits.reduce((sum, c) => sum + c.pending_amount, 0));
+      } catch (error) {
+        console.error('Error fetching pending credits:', error);
+      } finally {
+        setLoadingCredits(false);
+      }
+    };
+
+    fetchPendingCredits();
+  }, [selectedShop]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
@@ -261,24 +318,57 @@ export const NewOrderModal = memo(({
             </select>
           </div>
 
-          {selectedShop && creditBalance > 0 && (
+          {/* Outstanding Credits Section */}
+          {selectedShop && loadingCredits && (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading credit history...</span>
+            </div>
+          )}
+
+          {selectedShop && !loadingCredits && pendingCredits.length > 0 && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning/20 shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-warning" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-warning">Outstanding Credit</h4>
+                  <h4 className="font-semibold text-warning">Outstanding Credits/Dues</h4>
                   <p className="text-sm text-warning/80 mt-1">
-                    This shop has pending dues of <span className="font-bold">{formatCurrency(creditBalance)}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Please consider collecting previous dues before processing new credit orders.
+                    Total pending dues: <span className="font-bold text-lg">{formatCurrency(totalPendingDues)}</span>
                   </p>
                 </div>
               </div>
+              
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-warning/30">
+                  <span>Order #</span>
+                  <span>Date</span>
+                  <span className="text-right">Total</span>
+                  <span className="text-right">Pending</span>
+                </div>
+                {pendingCredits.map((credit) => (
+                  <div key={credit.id} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-warning/20 last:border-0">
+                    <span className="font-mono text-xs font-medium text-foreground truncate" title={credit.order_number}>
+                      {credit.order_number}
+                    </span>
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(credit.created_at), 'dd MMM yy')}
+                    </span>
+                    <span className="text-right text-muted-foreground">
+                      {formatCurrency(credit.total_amount)}
+                    </span>
+                    <span className="text-right font-semibold text-warning">
+                      {formatCurrency(credit.pending_amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-warning/30">
+                Please consider collecting previous dues before processing new credit orders.
+              </p>
             </div>
           )}
 
