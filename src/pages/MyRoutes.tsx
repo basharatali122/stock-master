@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Map, Store, Calendar, ArrowRight, ShoppingCart, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,10 +12,9 @@ interface Route {
   active_days: string[];
   is_active: boolean;
   cities?: { name: string };
-  shop_count?: number;
 }
 
-const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+const TODAY = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
 const MyRoutes: React.FC = () => {
   const { user } = useAuth();
@@ -23,7 +22,7 @@ const MyRoutes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [shopCounts, setShopCounts] = useState<Record<string, number>>({});
 
-  const fetchRoutes = async () => {
+  const fetchRoutes = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -64,11 +63,11 @@ const MyRoutes: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchRoutes();
-  }, [user]);
+  }, [fetchRoutes]);
 
   // Real-time subscription for route updates
   useEffect(() => {
@@ -93,10 +92,22 @@ const MyRoutes: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, fetchRoutes]);
 
-  const activeRoutes = routes.filter((route) =>
-    route.active_days?.includes(today)
+  // Memoized calculations
+  const activeRoutes = useMemo(() => 
+    routes.filter((route) => route.active_days?.includes(TODAY)),
+    [routes]
+  );
+
+  const totalShops = useMemo(() => 
+    Object.values(shopCounts).reduce((a, b) => a + b, 0),
+    [shopCounts]
+  );
+
+  const uniqueActiveDays = useMemo(() => 
+    [...new Set(routes.flatMap((r) => r.active_days || []))].length,
+    [routes]
   );
 
   if (loading) {
@@ -144,7 +155,7 @@ const MyRoutes: React.FC = () => {
           <Calendar className="h-6 w-6 text-accent" />
         </div>
         <div>
-          <p className="font-medium text-foreground">Today is {today}</p>
+          <p className="font-medium text-foreground">Today is {TODAY}</p>
           <p className="text-sm text-muted-foreground">
             You have {activeRoutes.length} active route(s) for today
           </p>
@@ -218,7 +229,7 @@ const MyRoutes: React.FC = () => {
         <h2 className="section-title">All Assigned Routes</h2>
         <div className="space-y-4">
           {routes.map((route) => {
-            const isActiveToday = route.active_days?.includes(today);
+            const isActiveToday = route.active_days?.includes(TODAY);
             return (
               <div
                 key={route.id}
@@ -248,7 +259,7 @@ const MyRoutes: React.FC = () => {
                       <span
                         key={day}
                         className={`rounded px-2 py-0.5 text-xs font-medium ${
-                          day === today
+                          day === TODAY
                             ? 'bg-accent text-accent-foreground'
                             : 'bg-secondary text-secondary-foreground'
                         }`}
@@ -279,15 +290,11 @@ const MyRoutes: React.FC = () => {
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Shops</p>
-          <p className="mt-1 text-2xl font-bold">
-            {Object.values(shopCounts).reduce((a, b) => a + b, 0)}
-          </p>
+          <p className="mt-1 text-2xl font-bold">{totalShops}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Active Days/Week</p>
-          <p className="mt-1 text-2xl font-bold">
-            {[...new Set(routes.flatMap((r) => r.active_days || []))].length}
-          </p>
+          <p className="mt-1 text-2xl font-bold">{uniqueActiveDays}</p>
         </div>
       </div>
     </div>

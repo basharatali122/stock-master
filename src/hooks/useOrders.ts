@@ -69,7 +69,8 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
               shops(name, routes(name)),
               order_items(*, products(name, product_code))
             `)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(500); // Limit for performance
 
           if (!isAdmin && userId) {
             query = query.eq('booker_id', userId);

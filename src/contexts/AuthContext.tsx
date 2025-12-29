@@ -47,34 +47,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      // Batch both queries in parallel for better performance
+      const [profileResult, roleResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle()
+      ]);
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        return;
+      if (profileResult.error) {
+        console.error('Error fetching profile:', profileResult.error);
+      } else if (profileResult.data) {
+        setProfile(profileResult.data as UserProfile);
       }
 
-      if (profileData) {
-        setProfile(profileData as UserProfile);
-      }
-
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (roleError) {
-        console.error('Error fetching role:', roleError);
-        return;
-      }
-
-      if (roleData) {
-        setRole(roleData.role as UserRole);
+      if (roleResult.error) {
+        console.error('Error fetching role:', roleResult.error);
+      } else if (roleResult.data) {
+        setRole(roleResult.data.role as UserRole);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
