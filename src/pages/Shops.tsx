@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
@@ -48,7 +48,7 @@ const Shops: React.FC = () => {
     shop_code: '',
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // For order bookers, first get their assigned route IDs
       let assignedRouteIds: string[] = [];
@@ -64,58 +64,53 @@ const Shops: React.FC = () => {
         assignedRouteIds = userRoutes?.map(r => r.id) || [];
       }
 
-      // Fetch shops with route info
-      let shopsQuery = supabase
-        .from('shops')
-        .select(`
-          *,
-          routes(name, city_id)
-        `)
-        .order('created_at', { ascending: false });
-      
-      // Order bookers only see shops on their assigned routes
-      if (!isAdmin && assignedRouteIds.length > 0) {
-        shopsQuery = shopsQuery.in('route_id', assignedRouteIds);
-      } else if (!isAdmin && assignedRouteIds.length === 0) {
-        // No assigned routes means no shops to show
+      // For order bookers with no routes, exit early
+      if (!isAdmin && assignedRouteIds.length === 0) {
         setShops([]);
         setRoutes([]);
         setLoading(false);
         return;
       }
 
-      const { data: shopsData, error: shopsError } = await shopsQuery;
-      if (shopsError) throw shopsError;
-      setShops(shopsData || []);
-
-      // Fetch routes for dropdown - order bookers only see their assigned routes
+      // Build queries
+      let shopsQuery = supabase
+        .from('shops')
+        .select('*, routes(name, city_id)')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      
       let routesQuery = supabase
         .from('routes')
-        .select(`
-          id,
-          name,
-          cities(name)
-        `)
+        .select('id, name, cities(name)')
         .eq('is_active', true)
         .order('name');
       
       if (!isAdmin && assignedRouteIds.length > 0) {
+        shopsQuery = shopsQuery.in('route_id', assignedRouteIds);
         routesQuery = routesQuery.in('id', assignedRouteIds);
       }
 
-      const { data: routesData, error: routesError } = await routesQuery;
-      if (routesError) throw routesError;
-      setRoutes(routesData || []);
+      // Batch both queries in parallel
+      const [shopsResult, routesResult] = await Promise.all([
+        shopsQuery,
+        routesQuery
+      ]);
+
+      if (shopsResult.error) throw shopsResult.error;
+      if (routesResult.error) throw routesResult.error;
+
+      setShops(shopsResult.data || []);
+      setRoutes(routesResult.data || []);
     } catch (error: any) {
       toast.error('Failed to load shops: ' + error.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin, user]);
 
   useEffect(() => {
     fetchData();
-  }, [isAdmin, user]);
+  }, [fetchData]);
 
   const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,17 +250,33 @@ const Shops: React.FC = () => {
     });
   };
 
-  const filteredShops = shops.filter(
-    (shop) =>
-      shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shop.owner_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shop.routes?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (shop.shop_code && shop.shop_code.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredShops = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase();
+    return shops.filter(
+      (shop) =>
+        shop.name.toLowerCase().includes(searchLower) ||
+        shop.owner_name.toLowerCase().includes(searchLower) ||
+        shop.routes?.name?.toLowerCase().includes(searchLower) ||
+        (shop.shop_code && shop.shop_code.toLowerCase().includes(searchLower))
+    );
+  }, [shops, searchQuery]);
 
-  const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString()}`;
+  const formatCurrency = useCallback((amount: number) => `Rs. ${amount.toLocaleString()}`, []);
 
-  const totalCredit = shops.reduce((acc, shop) => acc + (shop.credit_balance || 0), 0);
+  const { totalCredit, shopsWithCredit, shopsWithZeroCredit } = useMemo(() => {
+    let total = 0;
+    let withCredit = 0;
+    let zeroCredit = 0;
+    
+    shops.forEach(shop => {
+      const balance = shop.credit_balance || 0;
+      total += balance;
+      if (balance > 0) withCredit++;
+      else zeroCredit++;
+    });
+    
+    return { totalCredit: total, shopsWithCredit: withCredit, shopsWithZeroCredit: zeroCredit };
+  }, [shops]);
 
   const handlePrintPendingCredits = async () => {
     try {
@@ -380,7 +391,7 @@ const Shops: React.FC = () => {
     }
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: 'shop_code',
       header: 'Code',
@@ -458,7 +469,7 @@ const Shops: React.FC = () => {
         </div>
       ),
     },
-  ];
+  ], [isAdmin, formatCurrency]);
 
   if (loading) {
     return (
@@ -515,13 +526,13 @@ const Shops: React.FC = () => {
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Shops with Credit</p>
           <p className="mt-1 text-2xl font-bold text-destructive">
-            {shops.filter((s) => (s.credit_balance || 0) > 0).length}
+            {shopsWithCredit}
           </p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Clear Balance</p>
           <p className="mt-1 text-2xl font-bold text-success">
-            {shops.filter((s) => (s.credit_balance || 0) === 0).length}
+            {shopsWithZeroCredit}
           </p>
         </div>
       </div>
