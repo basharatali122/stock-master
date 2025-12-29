@@ -163,6 +163,18 @@ const Orders: React.FC = () => {
     const product = products.find(p => p.id === selectedProduct);
     if (!product) return;
 
+    // Calculate total quantity already in order for this product
+    const existingOrderQty = orderItems
+      .filter(item => item.productId === selectedProduct)
+      .reduce((sum, item) => sum + item.quantity, 0);
+
+    // Check stock availability
+    const totalRequested = existingOrderQty + quantityNum;
+    if (totalRequested > product.stock_quantity) {
+      toast.error(`Insufficient stock! Available: ${product.stock_quantity} boxes, Requested: ${totalRequested} boxes`);
+      return;
+    }
+
     setOrderItems(prev => {
       const existingIndex = prev.findIndex(i => i.productId === selectedProduct);
       if (existingIndex >= 0) {
@@ -185,7 +197,7 @@ const Orders: React.FC = () => {
 
     setSelectedProduct('');
     setQuantity('1');
-  }, [selectedProduct, quantity, products]);
+  }, [selectedProduct, quantity, products, orderItems]);
 
   const removeItem = useCallback((index: number) => {
     setOrderItems(prev => prev.filter((_, i) => i !== index));
