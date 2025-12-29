@@ -3,12 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Package, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react';
 import { loginSchema, registerSchema, validateInput } from '@/lib/validation';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Stats {
+  shops: number;
+  routes: number;
+  orders: number;
+  deliveryRate: number;
+}
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [stats, setStats] = useState<Stats>({ shops: 0, routes: 0, orders: 0, deliveryRate: 0 });
   const { login, register, user, isApproved } = useAuth();
   const navigate = useNavigate();
 
@@ -21,6 +30,31 @@ const Auth: React.FC = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPhone, setRegisterPhone] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+
+  // Fetch real-time stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      const [shopsRes, routesRes, ordersRes, deliveredRes] = await Promise.all([
+        supabase.from('shops').select('id', { count: 'exact', head: true }),
+        supabase.from('routes').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('orders').select('id', { count: 'exact', head: true }),
+        supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
+      ]);
+
+      const totalOrders = ordersRes.count || 0;
+      const deliveredOrders = deliveredRes.count || 0;
+      const deliveryRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
+
+      setStats({
+        shops: shopsRes.count || 0,
+        routes: routesRes.count || 0,
+        orders: totalOrders,
+        deliveryRate,
+      });
+    };
+
+    fetchStats();
+  }, []);
 
   // Redirect if already logged in and approved
   useEffect(() => {
@@ -125,26 +159,26 @@ const Auth: React.FC = () => {
             </p>
             <div className="grid grid-cols-2 gap-4 pt-4">
               <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">500+</p>
+                <p className="text-3xl font-bold text-primary-foreground">{stats.shops.toLocaleString()}</p>
                 <p className="text-sm text-primary-foreground/70">Active Shops</p>
               </div>
               <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">50+</p>
+                <p className="text-3xl font-bold text-primary-foreground">{stats.routes}</p>
                 <p className="text-sm text-primary-foreground/70">Routes Covered</p>
               </div>
               <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">1000+</p>
-                <p className="text-sm text-primary-foreground/70">Daily Orders</p>
+                <p className="text-3xl font-bold text-primary-foreground">{stats.orders.toLocaleString()}</p>
+                <p className="text-sm text-primary-foreground/70">Total Orders</p>
               </div>
               <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">98%</p>
+                <p className="text-3xl font-bold text-primary-foreground">{stats.deliveryRate}%</p>
                 <p className="text-sm text-primary-foreground/70">Delivery Rate</p>
               </div>
             </div>
           </div>
 
           <p className="text-sm text-primary-foreground/60">
-            © 2024 ARTRADERS. All rights reserved.
+            © 2025 ARTRADERS. All rights reserved.
           </p>
         </div>
 
