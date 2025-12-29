@@ -38,8 +38,11 @@ interface Shop {
 interface Product {
   id: string;
   name: string;
+  product_code: string | null;
   price: number;
   discount_percentage: number;
+  stock_quantity: number;
+  boxes_per_carton: number;
 }
 
 export function useOrders(isAdmin: boolean, userId: string | undefined) {
@@ -78,7 +81,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
         // Fetch products
         supabase
           .from('products')
-          .select('id, name, price, discount_percentage')
+          .select('id, name, product_code, price, discount_percentage, stock_quantity, boxes_per_carton')
           .eq('is_active', true)
           .order('name')
       ]);

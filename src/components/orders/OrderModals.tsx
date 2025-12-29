@@ -1,5 +1,5 @@
-import React, { memo, useEffect, useState } from 'react';
-import { X, Loader2, ShoppingCart, AlertTriangle, Calendar } from 'lucide-react';
+import React, { memo, useEffect, useState, useMemo } from 'react';
+import { X, Loader2, ShoppingCart, AlertTriangle, Calendar, Package, Box } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -39,8 +39,11 @@ interface Shop {
 interface Product {
   id: string;
   name: string;
+  product_code: string | null;
   price: number;
   discount_percentage: number;
+  stock_quantity: number;
+  boxes_per_carton: number;
 }
 
 interface NewOrderItem {
@@ -256,6 +259,53 @@ export const NewOrderModal = memo(({
   const [pendingCredits, setPendingCredits] = useState<PendingCredit[]>([]);
   const [loadingCredits, setLoadingCredits] = useState(false);
   const [totalPendingDues, setTotalPendingDues] = useState(0);
+  const [liveProducts, setLiveProducts] = useState<Product[]>(products);
+
+  // Get selected product info
+  const selectedProductData = useMemo(() => {
+    return liveProducts.find(p => p.id === selectedProduct);
+  }, [liveProducts, selectedProduct]);
+
+  // Calculate already ordered quantity for the selected product
+  const orderedQty = useMemo(() => {
+    return orderItems
+      .filter(item => item.productId === selectedProduct)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  }, [orderItems, selectedProduct]);
+
+  // Initialize live products from props
+  useEffect(() => {
+    setLiveProducts(products);
+  }, [products]);
+
+  // Set up real-time subscription for product stock updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('order-products-stock')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'products',
+        },
+        (payload) => {
+          // Update the product in our local state
+          setLiveProducts(prev => 
+            prev.map(p => 
+              p.id === payload.new.id 
+                ? { ...p, stock_quantity: payload.new.stock_quantity as number }
+                : p
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Fetch all pending credits when shop is selected
   useEffect(() => {
@@ -377,14 +427,91 @@ export const NewOrderModal = memo(({
             <div className="flex items-center gap-2">
               <select className="input-field flex-1" value={selectedProduct} onChange={(e) => onProductChange(e.target.value)} disabled={submitting}>
                 <option value="">Select product</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} - Rs. {p.price}</option>
+                {liveProducts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.product_code ? `[${p.product_code}] ` : ''}{p.name} - Rs. {p.price} ({p.stock_quantity} in stock)
+                  </option>
                 ))}
               </select>
               <input type="number" placeholder="Qty" className="input-field w-20" min="1" value={quantity} onChange={(e) => onQuantityChange(e.target.value)} disabled={submitting} />
               <button type="button" onClick={onAddItem} className="btn-accent" disabled={submitting}>Add</button>
             </div>
           </div>
+
+          {/* Real-time Stock Info for Selected Product */}
+          {selectedProductData && (
+            <div className={`rounded-lg border p-3 ${
+              selectedProductData.stock_quantity < parseInt(quantity || '0') + orderedQty
+                ? 'border-destructive/50 bg-destructive/10'
+                : selectedProductData.stock_quantity < 50
+                ? 'border-warning/50 bg-warning/10'
+                : 'border-success/50 bg-success/10'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                    selectedProductData.stock_quantity < parseInt(quantity || '0') + orderedQty
+                      ? 'bg-destructive/20'
+                      : selectedProductData.stock_quantity < 50
+                      ? 'bg-warning/20'
+                      : 'bg-success/20'
+                  }`}>
+                    <Package className={`h-5 w-5 ${
+                      selectedProductData.stock_quantity < parseInt(quantity || '0') + orderedQty
+                        ? 'text-destructive'
+                        : selectedProductData.stock_quantity < 50
+                        ? 'text-warning'
+                        : 'text-success'
+                    }`} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{selectedProductData.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedProductData.product_code && (
+                        <span className="font-mono bg-muted px-1 py-0.5 rounded mr-2">{selectedProductData.product_code}</span>
+                      )}
+                      {selectedProductData.boxes_per_carton || 24} boxes/carton
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-2">
+                    <Box className="h-4 w-4 text-muted-foreground" />
+                    <span className={`text-lg font-bold ${
+                      selectedProductData.stock_quantity < parseInt(quantity || '0') + orderedQty
+                        ? 'text-destructive'
+                        : selectedProductData.stock_quantity < 50
+                        ? 'text-warning'
+                        : 'text-success'
+                    }`}>
+                      {selectedProductData.stock_quantity.toLocaleString()}
+                    </span>
+                    <span className="text-sm text-muted-foreground">boxes available</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ≈ {Math.floor(selectedProductData.stock_quantity / (selectedProductData.boxes_per_carton || 24))} cartons
+                  </p>
+                </div>
+              </div>
+              
+              {selectedProductData.stock_quantity < parseInt(quantity || '0') + orderedQty && (
+                <div className="mt-2 pt-2 border-t border-destructive/30">
+                  <p className="text-xs text-destructive font-medium flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Insufficient stock! Requested: {parseInt(quantity || '0') + orderedQty}, Available: {selectedProductData.stock_quantity}
+                  </p>
+                </div>
+              )}
+              
+              {orderedQty > 0 && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    Already in order: <span className="font-medium">{orderedQty} boxes</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {orderItems.length > 0 && (
             <div className="rounded-lg border border-border p-3 space-y-2">
