@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/ui/StatCard';
-import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi } from 'lucide-react';
+import BrandStockReport from '@/components/reports/BrandStockReport';
+import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
 
@@ -590,6 +591,18 @@ const Reports: React.FC = () => {
             {stats.totalReturns} returns from {stats.totalOrders} orders
           </p>
         </div>
+      </div>
+
+      {/* Brand-wise Stock Report */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Package className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Brand-wise Stock Report</h3>
+          </div>
+          <span className="text-sm text-muted-foreground">With Value</span>
+        </div>
+        <BrandStockReport />
       </div>
     </div>
   );

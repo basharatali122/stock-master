@@ -8,16 +8,22 @@ import { productSchema, validateInput } from '@/lib/validation';
 
 interface Product {
   id: string;
+  product_code: string | null;
   name: string;
+  brand: string | null;
+  pack_type: string | null;
   category: string;
   price: number;
   stock_quantity: number;
   discount_percentage: number;
+  boxes_per_carton: number;
   is_active: boolean;
   created_at: string;
 }
 
 const categories = ['All', 'Biscuits', 'Toffees', 'Candies', 'Snacks', 'Beverages', 'Other'];
+const brands = ["Chip n' Dip", 'Friendz', 'More Cookies', 'Peanut Bite', 'Zeera Club', 'Tasteland Nimko', 'Aktive Energy', 'Anytime Waffer', 'Other'];
+const packTypes = ['Family Pack', 'Half Pack', 'Mini Half Pack', 'Snack Pack', 'Tikki Pack'];
 
 const Products: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -31,11 +37,15 @@ const Products: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
+    product_code: '',
     name: '',
+    brand: '',
+    pack_type: '',
     category: '',
     price: '',
     stock_quantity: '',
     discount_percentage: '0',
+    boxes_per_carton: '24',
   });
 
   const fetchProducts = async () => {
@@ -63,11 +73,15 @@ const Products: React.FC = () => {
     
     // Validate input
     const validationResult = validateInput(productSchema, {
+      product_code: formData.product_code,
       name: formData.name,
+      brand: formData.brand,
+      pack_type: formData.pack_type,
       category: formData.category,
       price: parseFloat(formData.price) || 0,
       stock_quantity: parseInt(formData.stock_quantity) || 0,
       discount_percentage: parseFloat(formData.discount_percentage) || 0,
+      boxes_per_carton: parseInt(formData.boxes_per_carton) || 24,
     });
     
     if (!validationResult.success) {
@@ -80,11 +94,15 @@ const Products: React.FC = () => {
     setSubmitting(true);
     try {
       const { error } = await supabase.from('products').insert({
+        product_code: validatedData.product_code,
         name: validatedData.name,
+        brand: validatedData.brand,
+        pack_type: validatedData.pack_type,
         category: validatedData.category,
         price: validatedData.price,
         stock_quantity: validatedData.stock_quantity,
         discount_percentage: validatedData.discount_percentage,
+        boxes_per_carton: validatedData.boxes_per_carton,
       });
 
       if (error) throw error;
@@ -109,11 +127,15 @@ const Products: React.FC = () => {
 
     // Validate input
     const validationResult = validateInput(productSchema, {
+      product_code: formData.product_code,
       name: formData.name,
+      brand: formData.brand,
+      pack_type: formData.pack_type,
       category: formData.category,
       price: parseFloat(formData.price) || 0,
       stock_quantity: parseInt(formData.stock_quantity) || 0,
       discount_percentage: parseFloat(formData.discount_percentage) || 0,
+      boxes_per_carton: parseInt(formData.boxes_per_carton) || 24,
     });
     
     if (!validationResult.success) {
@@ -128,11 +150,15 @@ const Products: React.FC = () => {
       const { error } = await supabase
         .from('products')
         .update({
+          product_code: validatedData.product_code,
           name: validatedData.name,
+          brand: validatedData.brand,
+          pack_type: validatedData.pack_type,
           category: validatedData.category,
           price: validatedData.price,
           stock_quantity: validatedData.stock_quantity,
           discount_percentage: validatedData.discount_percentage,
+          boxes_per_carton: validatedData.boxes_per_carton,
         })
         .eq('id', editingProduct.id);
 
@@ -171,28 +197,38 @@ const Products: React.FC = () => {
   const openEditModal = (product: Product) => {
     setEditingProduct(product);
     setFormData({
+      product_code: product.product_code || '',
       name: product.name,
+      brand: product.brand || '',
+      pack_type: product.pack_type || '',
       category: product.category,
       price: product.price.toString(),
       stock_quantity: product.stock_quantity?.toString() || '0',
       discount_percentage: product.discount_percentage?.toString() || '0',
+      boxes_per_carton: product.boxes_per_carton?.toString() || '24',
     });
     setShowEditModal(true);
   };
 
   const resetForm = () => {
     setFormData({
+      product_code: '',
       name: '',
+      brand: '',
+      pack_type: '',
       category: '',
       price: '',
       stock_quantity: '',
       discount_percentage: '0',
+      boxes_per_carton: '24',
     });
   };
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.product_code && product.product_code.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (product.brand && product.brand.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory =
       selectedCategory === 'All' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -201,6 +237,15 @@ const Products: React.FC = () => {
   const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString()}`;
 
   const columns = [
+    {
+      key: 'product_code',
+      header: 'Code',
+      render: (item: Product) => (
+        <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+          {item.product_code || 'N/A'}
+        </span>
+      ),
+    },
     {
       key: 'name',
       header: 'Product',
@@ -211,7 +256,9 @@ const Products: React.FC = () => {
           </div>
           <div>
             <p className="font-medium text-foreground">{item.name}</p>
-            <p className="text-xs text-muted-foreground">{item.category}</p>
+            <p className="text-xs text-muted-foreground">
+              {item.brand || 'No brand'} • {item.pack_type || 'No pack type'}
+            </p>
           </div>
         </div>
       ),
@@ -232,19 +279,28 @@ const Products: React.FC = () => {
     {
       key: 'stock_quantity',
       header: 'Stock',
-      render: (item: Product) => (
-        <span
-          className={
-            item.stock_quantity < 50
-              ? 'badge-destructive'
-              : item.stock_quantity < 100
-              ? 'badge-pending'
-              : 'badge-success'
-          }
-        >
-          {item.stock_quantity} units
-        </span>
-      ),
+      render: (item: Product) => {
+        const cartons = Math.floor((item.stock_quantity || 0) / (item.boxes_per_carton || 24));
+        const remainingBoxes = (item.stock_quantity || 0) % (item.boxes_per_carton || 24);
+        return (
+          <div>
+            <span
+              className={
+                item.stock_quantity < 50
+                  ? 'badge-destructive'
+                  : item.stock_quantity < 100
+                  ? 'badge-pending'
+                  : 'badge-success'
+              }
+            >
+              {item.stock_quantity} boxes
+            </span>
+            <p className="text-xs text-muted-foreground mt-1">
+              {cartons} cartons {remainingBoxes > 0 && `+ ${remainingBoxes}`}
+            </p>
+          </div>
+        );
+      },
     },
     ...(isAdmin
       ? [
@@ -373,17 +429,61 @@ const Products: React.FC = () => {
               Fill in the details to add a new product
             </p>
 
-            <form onSubmit={handleAddProduct} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g., Peek Freans Rio"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  disabled={submitting}
-                />
+            <form onSubmit={handleAddProduct} className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Product Code *</label>
+                  <input
+                    type="text"
+                    className="input-field font-mono"
+                    placeholder="e.g., PRD001"
+                    value={formData.product_code}
+                    onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g., Friendz Family Pack"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Brand *</label>
+                  <select
+                    className="input-field"
+                    value={formData.brand}
+                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                    disabled={submitting}
+                  >
+                    <option value="">Select brand</option>
+                    {brands.map((brand) => (
+                      <option key={brand} value={brand}>{brand}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Pack Type *</label>
+                  <select
+                    className="input-field"
+                    value={formData.pack_type}
+                    onChange={(e) => setFormData({ ...formData, pack_type: e.target.value })}
+                    disabled={submitting}
+                  >
+                    <option value="">Select pack type</option>
+                    {packTypes.map((pt) => (
+                      <option key={pt} value={pt}>{pt}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -401,7 +501,7 @@ const Products: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Price *</label>
                   <input
@@ -414,13 +514,27 @@ const Products: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Stock Qty</label>
+                  <label className="mb-1.5 block text-sm font-medium">Stock Qty (Boxes)</label>
                   <input
                     type="number"
                     className="input-field"
                     placeholder="0"
                     value={formData.stock_quantity}
                     onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Boxes per Carton *</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    placeholder="24"
+                    value={formData.boxes_per_carton}
+                    onChange={(e) => setFormData({ ...formData, boxes_per_carton: e.target.value })}
                     disabled={submitting}
                   />
                 </div>
@@ -467,16 +581,59 @@ const Products: React.FC = () => {
               Update product details
             </p>
 
-            <form onSubmit={handleEditProduct} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  disabled={submitting}
-                />
+            <form onSubmit={handleEditProduct} className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Product Code *</label>
+                  <input
+                    type="text"
+                    className="input-field font-mono"
+                    value={formData.product_code}
+                    onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Brand *</label>
+                  <select
+                    className="input-field"
+                    value={formData.brand}
+                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                    disabled={submitting}
+                  >
+                    <option value="">Select brand</option>
+                    {brands.map((brand) => (
+                      <option key={brand} value={brand}>{brand}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Pack Type *</label>
+                  <select
+                    className="input-field"
+                    value={formData.pack_type}
+                    onChange={(e) => setFormData({ ...formData, pack_type: e.target.value })}
+                    disabled={submitting}
+                  >
+                    <option value="">Select pack type</option>
+                    {packTypes.map((pt) => (
+                      <option key={pt} value={pt}>{pt}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -494,7 +651,7 @@ const Products: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Price *</label>
                   <input
@@ -506,12 +663,25 @@ const Products: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Stock Qty</label>
+                  <label className="mb-1.5 block text-sm font-medium">Stock Qty (Boxes)</label>
                   <input
                     type="number"
                     className="input-field"
                     value={formData.stock_quantity}
                     onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Boxes per Carton *</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={formData.boxes_per_carton}
+                    onChange={(e) => setFormData({ ...formData, boxes_per_carton: e.target.value })}
                     disabled={submitting}
                   />
                 </div>

@@ -159,35 +159,47 @@ export type Database = {
       }
       products: {
         Row: {
+          boxes_per_carton: number | null
+          brand: string | null
           category: string
           created_at: string | null
           discount_percentage: number | null
           id: string
           is_active: boolean | null
           name: string
+          pack_type: string | null
           price: number
+          product_code: string | null
           stock_quantity: number | null
           updated_at: string | null
         }
         Insert: {
+          boxes_per_carton?: number | null
+          brand?: string | null
           category: string
           created_at?: string | null
           discount_percentage?: number | null
           id?: string
           is_active?: boolean | null
           name: string
+          pack_type?: string | null
           price: number
+          product_code?: string | null
           stock_quantity?: number | null
           updated_at?: string | null
         }
         Update: {
+          boxes_per_carton?: number | null
+          brand?: string | null
           category?: string
           created_at?: string | null
           discount_percentage?: number | null
           id?: string
           is_active?: boolean | null
           name?: string
+          pack_type?: string | null
           price?: number
+          product_code?: string | null
           stock_quantity?: number | null
           updated_at?: string | null
         }

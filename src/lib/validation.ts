@@ -15,11 +15,15 @@ export const registerSchema = z.object({
 
 // Product validation schemas
 export const productSchema = z.object({
+  product_code: z.string().trim().min(1, { message: 'Product code is required' }).max(50, { message: 'Product code must be less than 50 characters' }),
   name: z.string().trim().min(1, { message: 'Product name is required' }).max(100, { message: 'Name must be less than 100 characters' }),
+  brand: z.string().trim().min(1, { message: 'Brand is required' }).max(100, { message: 'Brand must be less than 100 characters' }),
+  pack_type: z.string().trim().min(1, { message: 'Pack type is required' }).max(50, { message: 'Pack type must be less than 50 characters' }),
   category: z.string().trim().min(1, { message: 'Category is required' }).max(50, { message: 'Category must be less than 50 characters' }),
   price: z.number().positive({ message: 'Price must be greater than 0' }).max(10000000, { message: 'Price exceeds maximum limit' }),
   stock_quantity: z.number().int({ message: 'Stock must be a whole number' }).min(0, { message: 'Stock cannot be negative' }).max(1000000, { message: 'Stock exceeds maximum limit' }),
   discount_percentage: z.number().min(0, { message: 'Discount cannot be negative' }).max(100, { message: 'Discount cannot exceed 100%' }),
+  boxes_per_carton: z.number().int({ message: 'Boxes per carton must be a whole number' }).positive({ message: 'Boxes per carton must be greater than 0' }).max(100, { message: 'Boxes per carton exceeds maximum limit' }),
 });
 
 // Shop validation schemas
