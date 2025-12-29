@@ -14,7 +14,9 @@ import {
   Clock,
   TrendingUp,
   ArrowRight,
+  Calendar,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 interface DashboardStats {
@@ -26,6 +28,8 @@ interface DashboardStats {
   lowStockProducts: number;
   activeRoutes: number;
   pendingApprovals: number;
+  dailySales: number;
+  dailyOrders: number;
 }
 
 interface RecentOrder {
@@ -46,6 +50,13 @@ interface LowStockProduct {
   stock_quantity: number;
 }
 
+interface BookerDailySale {
+  booker_id: string;
+  booker_name: string;
+  daily_sales: number;
+  daily_orders: number;
+}
+
 const Dashboard: React.FC = () => {
   const { isAdmin, profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
@@ -57,9 +68,12 @@ const Dashboard: React.FC = () => {
     lowStockProducts: 0,
     activeRoutes: 0,
     pendingApprovals: 0,
+    dailySales: 0,
+    dailyOrders: 0,
   });
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
+  const [bookerDailySales, setBookerDailySales] = useState<BookerDailySale[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,18 +82,58 @@ const Dashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch counts
-      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes] = await Promise.all([
+      // Get today's date range
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+
+      // Fetch counts and daily orders
+      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes, dailyOrdersRes] = await Promise.all([
         supabase.from('orders').select('id, total_amount, paid_amount', { count: 'exact' }),
         supabase.from('shops').select('id', { count: 'exact' }),
         supabase.from('products').select('id, stock_quantity', { count: 'exact' }),
         supabase.from('routes').select('id', { count: 'exact' }).eq('is_active', true),
         supabase.from('profiles').select('id', { count: 'exact' }).eq('status', 'pending'),
+        supabase.from('orders').select('id, total_amount, booker_id, created_at').gte('created_at', startOfDay).lt('created_at', endOfDay),
       ]);
 
       const totalSales = ordersRes.data?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
       const pendingPayments = ordersRes.data?.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0) || 0;
       const lowStock = productsRes.data?.filter(p => (p.stock_quantity || 0) < 50).length || 0;
+      
+      // Calculate daily sales
+      const dailySales = dailyOrdersRes.data?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+      const dailyOrders = dailyOrdersRes.data?.length || 0;
+
+      // Calculate booker-wise daily sales
+      const bookerSalesMap: Record<string, { sales: number; orders: number }> = {};
+      dailyOrdersRes.data?.forEach((order) => {
+        const existing = bookerSalesMap[order.booker_id] || { sales: 0, orders: 0 };
+        bookerSalesMap[order.booker_id] = {
+          sales: existing.sales + Number(order.total_amount || 0),
+          orders: existing.orders + 1,
+        };
+      });
+
+      // Fetch booker names for daily sales
+      const bookerIds = Object.keys(bookerSalesMap);
+      let bookerProfiles: { user_id: string; full_name: string }[] = [];
+      if (bookerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', bookerIds);
+        bookerProfiles = profiles || [];
+      }
+
+      const bookerDailySalesData: BookerDailySale[] = Object.entries(bookerSalesMap).map(([bookerId, data]) => ({
+        booker_id: bookerId,
+        booker_name: bookerProfiles.find(p => p.user_id === bookerId)?.full_name || 'Unknown',
+        daily_sales: data.sales,
+        daily_orders: data.orders,
+      })).sort((a, b) => b.daily_sales - a.daily_sales);
+
+      setBookerDailySales(bookerDailySalesData);
 
       setStats({
         totalSales,
@@ -90,6 +144,8 @@ const Dashboard: React.FC = () => {
         lowStockProducts: lowStock,
         activeRoutes: routesRes.count || 0,
         pendingApprovals: pendingUsersRes.count || 0,
+        dailySales,
+        dailyOrders,
       });
 
       // Fetch recent orders with related data
@@ -202,6 +258,67 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Daily Sales Highlight */}
+      <div className="rounded-xl border border-accent/30 bg-gradient-to-r from-accent/10 to-primary/10 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/20">
+              <Calendar className="h-6 w-6 text-accent" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Today's Sales</h2>
+              <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg bg-card/80 p-4 border border-border/50">
+            <p className="text-sm text-muted-foreground">Today's Revenue</p>
+            <p className="text-2xl font-bold text-accent">{formatCurrency(stats.dailySales)}</p>
+          </div>
+          <div className="rounded-lg bg-card/80 p-4 border border-border/50">
+            <p className="text-sm text-muted-foreground">Today's Orders</p>
+            <p className="text-2xl font-bold text-foreground">{stats.dailyOrders}</p>
+          </div>
+          <div className="rounded-lg bg-card/80 p-4 border border-border/50">
+            <p className="text-sm text-muted-foreground">Avg Order Value</p>
+            <p className="text-2xl font-bold text-foreground">
+              {stats.dailyOrders > 0 ? formatCurrency(Math.round(stats.dailySales / stats.dailyOrders)) : 'Rs. 0'}
+            </p>
+          </div>
+          <div className="rounded-lg bg-card/80 p-4 border border-border/50">
+            <p className="text-sm text-muted-foreground">Active Bookers Today</p>
+            <p className="text-2xl font-bold text-foreground">{bookerDailySales.length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Booker Daily Sales Breakdown */}
+      {isAdmin && bookerDailySales.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="section-title">Order Booker Daily Sales</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {bookerDailySales.map((booker) => (
+              <div
+                key={booker.booker_id}
+                className="flex items-center justify-between rounded-lg border border-border p-4 hover:border-accent/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20">
+                    <Users className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">{booker.booker_name}</p>
+                    <p className="text-sm text-muted-foreground">{booker.daily_orders} orders</p>
+                  </div>
+                </div>
+                <p className="text-lg font-semibold text-accent">{formatCurrency(booker.daily_sales)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
