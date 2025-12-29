@@ -73,10 +73,11 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
 
           return query;
         })(),
-        // Fetch shops
+        // Fetch shops from active routes only
         supabase
           .from('shops')
-          .select('id, name, route_id, credit_balance, routes(name)')
+          .select('id, name, route_id, credit_balance, routes!inner(name, is_active)')
+          .eq('routes.is_active', true)
           .order('name'),
         // Fetch products
         supabase
