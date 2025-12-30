@@ -582,15 +582,13 @@ export const NewOrderModal = memo(({
                         type="button"
                         className={`w-full px-3 py-2 text-left hover:bg-accent/50 flex items-center justify-between transition-colors border-b border-border/50 last:border-b-0 ${
                           selectedProduct === p.id ? 'bg-primary/10' : ''
-                        } ${p.stock_quantity === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        }`}
                         onClick={() => {
-                          if (p.stock_quantity > 0) {
-                            onProductChange(p.id);
-                            setProductSearch(p.product_code ? `[${p.product_code}] ${p.name}` : p.name);
-                            setShowProductDropdown(false);
-                          }
+                          onProductChange(p.id);
+                          setProductSearch(p.product_code ? `[${p.product_code}] ${p.name}` : p.name);
+                          setShowProductDropdown(false);
                         }}
-                        disabled={submitting || p.stock_quantity === 0}
+                        disabled={submitting}
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -603,9 +601,11 @@ export const NewOrderModal = memo(({
                           </div>
                           <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground mt-1">
                             <span className="font-medium">Rs. {p.price.toLocaleString()}</span>
-                            <span className={`${p.stock_quantity === 0 ? 'text-destructive font-medium' : p.stock_quantity < 10 ? 'text-destructive' : p.stock_quantity < 50 ? 'text-warning' : 'text-success'}`}>
-                              {p.stock_quantity === 0 ? 'Out of stock' : `${p.stock_quantity} available`}
-                            </span>
+                            {p.stock_quantity != null && (
+                              <span className={`${p.stock_quantity === 0 ? 'text-warning' : p.stock_quantity < 10 ? 'text-warning' : p.stock_quantity < 50 ? 'text-muted-foreground' : 'text-success'}`}>
+                                {p.stock_quantity === 0 ? 'Low stock' : `${p.stock_quantity} in stock`}
+                              </span>
+                            )}
                           </div>
                         </div>
                         {selectedProduct === p.id && (
