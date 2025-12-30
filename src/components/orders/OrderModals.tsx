@@ -752,23 +752,6 @@ export const NewOrderModal = memo(({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Payment Type</label>
-              <select className="input-field" value={paymentType} onChange={(e) => onPaymentTypeChange(e.target.value)} disabled={submitting}>
-                <option value="paid">Cash (Full Payment)</option>
-                <option value="credit">Credit</option>
-                <option value="partial">Partial Payment</option>
-              </select>
-            </div>
-            {paymentType !== 'paid' && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Amount Paid</label>
-                <input type="number" className="input-field" placeholder="0" value={paidAmount} onChange={(e) => onPaidAmountChange(e.target.value)} disabled={submitting} />
-              </div>
-            )}
-          </div>
-
           <div className="rounded-lg bg-primary/5 p-4">
             <h3 className="font-medium mb-2">Order Summary</h3>
             <div className="space-y-1 text-sm">
