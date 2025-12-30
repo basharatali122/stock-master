@@ -453,14 +453,14 @@ export const NewOrderModal = memo(({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Add Products</label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1" ref={productSearchRef}>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
-                    placeholder="Search products by name or code..."
-                    className="input-field pl-10 pr-8"
+                    placeholder="Search products..."
+                    className="input-field pl-10 pr-8 text-sm sm:text-base"
                     value={productSearch}
                     onChange={(e) => {
                       setProductSearch(e.target.value);
@@ -470,74 +470,99 @@ export const NewOrderModal = memo(({
                     onFocus={() => setShowProductDropdown(true)}
                     disabled={submitting}
                   />
-                  {selectedProduct && (
+                  {(selectedProduct || productSearch) && (
                     <button
                       type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                       onClick={() => {
                         setProductSearch('');
                         onProductChange('');
+                        setShowProductDropdown(false);
                       }}
                     >
                       <X className="h-4 w-4" />
                     </button>
                   )}
                 </div>
-                {showProductDropdown && (
-                  <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-elevated">
-                    {filteredProducts.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-                        No products found
-                      </div>
-                    ) : (
-                      filteredProducts.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className={`w-full px-4 py-2 text-left hover:bg-muted/50 flex items-center justify-between transition-colors ${
-                            selectedProduct === p.id ? 'bg-primary/10' : ''
-                          } ${p.stock_quantity === 0 ? 'opacity-50' : ''}`}
-                          onClick={() => {
+                {showProductDropdown && filteredProducts.length > 0 && (
+                  <div className="absolute z-[100] mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+                    {filteredProducts.slice(0, 50).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`w-full px-3 py-2 text-left hover:bg-accent/50 flex items-center justify-between transition-colors border-b border-border/50 last:border-b-0 ${
+                          selectedProduct === p.id ? 'bg-primary/10' : ''
+                        } ${p.stock_quantity === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        onClick={() => {
+                          if (p.stock_quantity > 0) {
                             onProductChange(p.id);
                             setProductSearch(p.product_code ? `[${p.product_code}] ${p.name}` : p.name);
                             setShowProductDropdown(false);
-                          }}
-                          disabled={submitting || p.stock_quantity === 0}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              {p.product_code && (
-                                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">
-                                  {p.product_code}
-                                </span>
-                              )}
-                              <span className="font-medium truncate">{p.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              <span>Rs. {p.price.toLocaleString()}</span>
-                              {p.discount_percentage > 0 && (
-                                <span className="text-success">-{p.discount_percentage}%</span>
-                              )}
-                              <span className={p.stock_quantity < 10 ? 'text-destructive' : p.stock_quantity < 50 ? 'text-warning' : ''}>
-                                {p.stock_quantity} in stock
+                          }
+                        }}
+                        disabled={submitting || p.stock_quantity === 0}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {p.product_code && (
+                              <span className="font-mono text-[10px] sm:text-xs bg-muted px-1 py-0.5 rounded shrink-0">
+                                {p.product_code}
                               </span>
-                            </div>
+                            )}
+                            <span className="text-xs sm:text-sm font-medium leading-tight">{p.name}</span>
                           </div>
-                          {selectedProduct === p.id && (
-                            <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
-                          )}
-                        </button>
-                      ))
+                          <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground mt-1">
+                            <span className="font-medium">Rs. {p.price.toLocaleString()}</span>
+                            <span className={`${p.stock_quantity === 0 ? 'text-destructive font-medium' : p.stock_quantity < 10 ? 'text-destructive' : p.stock_quantity < 50 ? 'text-warning' : 'text-success'}`}>
+                              {p.stock_quantity === 0 ? 'Out of stock' : `${p.stock_quantity} available`}
+                            </span>
+                          </div>
+                        </div>
+                        {selectedProduct === p.id && (
+                          <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                        )}
+                      </button>
+                    ))}
+                    {filteredProducts.length > 50 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground text-center bg-muted/30">
+                        Showing first 50 of {filteredProducts.length} results. Type more to narrow down.
+                      </div>
                     )}
                   </div>
                 )}
+                {showProductDropdown && productSearch && filteredProducts.length === 0 && (
+                  <div className="absolute z-[100] mt-1 w-full rounded-lg border border-border bg-card shadow-lg px-3 py-4 text-center">
+                    <p className="text-sm text-muted-foreground">No products found for "{productSearch}"</p>
+                  </div>
+                )}
               </div>
-              <input type="number" placeholder="Qty" className="input-field w-20" min="1" value={quantity} onChange={(e) => onQuantityChange(e.target.value)} disabled={submitting} />
-              <button type="button" onClick={onAddItem} className="btn-accent" disabled={submitting}>Add</button>
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  placeholder="Qty" 
+                  className="input-field w-20 text-sm sm:text-base" 
+                  min="1" 
+                  value={quantity} 
+                  onChange={(e) => onQuantityChange(e.target.value)} 
+                  disabled={submitting} 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    onAddItem();
+                    setProductSearch('');
+                    setShowProductDropdown(false);
+                  }} 
+                  className="btn-accent whitespace-nowrap" 
+                  disabled={submitting || !selectedProduct}
+                >
+                  Add
+                </button>
+              </div>
             </div>
-            {filteredProducts.length > 0 && productSearch && !selectedProduct && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Found {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} matching "{productSearch}"
+            {selectedProduct && (
+              <p className="text-xs text-success mt-1 flex items-center gap-1">
+                <Check className="h-3 w-3" /> Product selected - enter quantity and click Add
               </p>
             )}
           </div>
