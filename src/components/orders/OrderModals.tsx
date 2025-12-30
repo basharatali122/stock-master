@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useState, useMemo, useRef } from 'react';
-import { X, Loader2, ShoppingCart, AlertTriangle, Calendar, Package, Box, Search, Check } from 'lucide-react';
+import { X, Loader2, ShoppingCart, AlertTriangle, Calendar, Package, Box, Search, Check, Store } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -268,6 +268,9 @@ export const NewOrderModal = memo(({
   const [productSearch, setProductSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const productSearchRef = useRef<HTMLDivElement>(null);
+  const [shopSearch, setShopSearch] = useState('');
+  const [showShopDropdown, setShowShopDropdown] = useState(false);
+  const shopSearchRef = useRef<HTMLDivElement>(null);
 
   // Filter products based on search
   const filteredProducts = useMemo(() => {
@@ -279,11 +282,24 @@ export const NewOrderModal = memo(({
     );
   }, [liveProducts, productSearch]);
 
-  // Close dropdown when clicking outside
+  // Filter shops based on search
+  const filteredShops = useMemo(() => {
+    if (!shopSearch.trim()) return shops;
+    const searchLower = shopSearch.toLowerCase();
+    return shops.filter(s => 
+      s.name.toLowerCase().includes(searchLower) ||
+      (s.routes?.name && s.routes.name.toLowerCase().includes(searchLower))
+    );
+  }, [shops, shopSearch]);
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (productSearchRef.current && !productSearchRef.current.contains(event.target as Node)) {
         setShowProductDropdown(false);
+      }
+      if (shopSearchRef.current && !shopSearchRef.current.contains(event.target as Node)) {
+        setShowShopDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -389,12 +405,86 @@ export const NewOrderModal = memo(({
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium">Shop *</label>
-            <select className="input-field" value={selectedShop} onChange={(e) => onShopChange(e.target.value)} disabled={submitting}>
-              <option value="">Select shop</option>
-              {shops.map((shop) => (
-                <option key={shop.id} value={shop.id}>{shop.name} ({shop.routes?.name})</option>
-              ))}
-            </select>
+            <div className="relative" ref={shopSearchRef}>
+              <div className="relative">
+                <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search shops by name or route..."
+                  className="input-field pl-10 pr-8 text-sm sm:text-base"
+                  value={shopSearch}
+                  onChange={(e) => {
+                    setShopSearch(e.target.value);
+                    setShowShopDropdown(true);
+                    if (!e.target.value) onShopChange('');
+                  }}
+                  onFocus={() => setShowShopDropdown(true)}
+                  disabled={submitting}
+                />
+                {(selectedShop || shopSearch) && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                    onClick={() => {
+                      setShopSearch('');
+                      onShopChange('');
+                      setShowShopDropdown(false);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {showShopDropdown && filteredShops.length > 0 && (
+                <div className="absolute z-[100] mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+                  {filteredShops.slice(0, 50).map((shop) => (
+                    <button
+                      key={shop.id}
+                      type="button"
+                      className={`w-full px-3 py-2 text-left hover:bg-accent/50 flex items-center justify-between transition-colors border-b border-border/50 last:border-b-0 ${
+                        selectedShop === shop.id ? 'bg-primary/10' : ''
+                      }`}
+                      onClick={() => {
+                        onShopChange(shop.id);
+                        setShopSearch(shop.name);
+                        setShowShopDropdown(false);
+                      }}
+                      disabled={submitting}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs sm:text-sm font-medium">{shop.name}</span>
+                        <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                          <span>{shop.routes?.name}</span>
+                          {shop.credit_balance > 0 && (
+                            <span className="text-warning font-medium">
+                              Credit: Rs. {shop.credit_balance.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {selectedShop === shop.id && (
+                        <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                      )}
+                    </button>
+                  ))}
+                  {filteredShops.length > 50 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground text-center bg-muted/30">
+                      Showing first 50 of {filteredShops.length} results. Type more to narrow down.
+                    </div>
+                  )}
+                </div>
+              )}
+              {showShopDropdown && shopSearch && filteredShops.length === 0 && (
+                <div className="absolute z-[100] mt-1 w-full rounded-lg border border-border bg-card shadow-lg px-3 py-4 text-center">
+                  <p className="text-sm text-muted-foreground">No shops found for "{shopSearch}"</p>
+                </div>
+              )}
+            </div>
+            {selectedShop && selectedShopData && (
+              <p className="text-xs text-success mt-1 flex items-center gap-1">
+                <Check className="h-3 w-3" /> {selectedShopData.name} - {selectedShopData.routes?.name}
+              </p>
+            )}
           </div>
 
           {/* Outstanding Credits Section */}
