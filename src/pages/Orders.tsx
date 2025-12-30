@@ -4,9 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import { Plus, Search, Eye, Loader2, Printer, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText } from '@/lib/print';
+import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
 import { ViewOrderModal, EditOrderModal, NewOrderModal } from '@/components/orders/OrderModals';
+import { PrintOrderModal } from '@/components/orders/PrintOrderModal';
 import { z } from 'zod';
 
 interface OrderItem {
@@ -137,6 +138,8 @@ const Orders: React.FC = () => {
   const [editStatus, setEditStatus] = useState('');
   const [editPaymentStatus, setEditPaymentStatus] = useState('');
   const [editPaidAmount, setEditPaidAmount] = useState('');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
 
   // New order form states
   const [selectedShop, setSelectedShop] = useState('');
@@ -363,52 +366,61 @@ const Orders: React.FC = () => {
   }, [editingOrder, editStatus, editPaymentStatus, editPaidAmount, refetch]);
 
   const printOrder = useCallback((order: Order) => {
-    const itemsHtml = order.order_items?.map(item => {
-      const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
-      return `
-      <tr>
-        <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
-        <td>${safeText(item.quantity)}</td>
-        <td>${formatCurrencyForPrint(item.unit_price)}</td>
-        <td>${safeText(item.discount_applied || 0)}%</td>
-        <td>${formatCurrencyForPrint(item.total_price)}</td>
-      </tr>
-    `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
+    // For admin, show print modal with discount option
+    if (isAdmin) {
+      setPrintingOrder(order);
+      setShowPrintModal(true);
+    } else {
+      // For non-admin, print directly without discount option
+      const itemsHtml = order.order_items?.map(item => {
+        const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
+        return `
+        <tr>
+          <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
+          <td>${safeText(item.quantity)}</td>
+          <td>${formatCurrencyForPrint(item.unit_price)}</td>
+          <td>${safeText(item.discount_applied || 0)}%</td>
+          <td>${formatCurrencyForPrint(item.total_price)}</td>
+        </tr>
+      `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
 
-    const content = `
-      <div class="header">
-        <h1>AR Traders</h1>
-        <p>Order Invoice</p>
-      </div>
-      <div class="info-grid">
-        <div class="info-item"><span class="info-label">Order Number:</span><span class="info-value">${safeText(order.order_number)}</span></div>
-        <div class="info-item"><span class="info-label">Date:</span><span class="info-value">${safeText(new Date(order.created_at).toLocaleDateString())}</span></div>
-        <div class="info-item"><span class="info-label">Shop:</span><span class="info-value">${safeText(order.shops?.name || 'N/A')}</span></div>
-        <div class="info-item"><span class="info-label">Route:</span><span class="info-value">${safeText(order.shops?.routes?.name || 'N/A')}</span></div>
-        <div class="info-item"><span class="info-label">Order Booker:</span><span class="info-value">${safeText(order.booker_name || 'N/A')}</span></div>
-        <div class="info-item"><span class="info-label">Status:</span><span class="badge ${getStatusBadgeClass(order.status)}">${safeText(order.status)}</span></div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Qty</th>
-            <th>Unit Price</th>
-            <th>Discount</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>${itemsHtml}</tbody>
-      </table>
-      <div class="summary">
-        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
-        <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>
-        <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(order.total_amount - order.paid_amount)}</span></div>
-        <div class="summary-row total"><span>Total:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
-      </div>
-    `;
-    printContent(content, `Order ${order.order_number}`);
-  }, []);
+      const content = `
+        <div class="header">
+          <h1>${safeText(COMPANY_INFO.name)}</h1>
+          <div class="company-address">${safeText(COMPANY_INFO.address)}</div>
+          <div class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | Ph: ${safeText(COMPANY_INFO.phone2)}</div>
+          <p class="subtitle">Order Invoice</p>
+        </div>
+        <div class="info-grid">
+          <div class="info-item"><span class="info-label">Order Number:</span><span class="info-value">${safeText(order.order_number)}</span></div>
+          <div class="info-item"><span class="info-label">Date:</span><span class="info-value">${safeText(new Date(order.created_at).toLocaleDateString())}</span></div>
+          <div class="info-item"><span class="info-label">Shop:</span><span class="info-value">${safeText(order.shops?.name || 'N/A')}</span></div>
+          <div class="info-item"><span class="info-label">Route:</span><span class="info-value">${safeText(order.shops?.routes?.name || 'N/A')}</span></div>
+          <div class="info-item"><span class="info-label">Order Booker:</span><span class="info-value">${safeText(order.booker_name || 'N/A')}</span></div>
+          <div class="info-item"><span class="info-label">Status:</span><span class="badge ${getStatusBadgeClass(order.status)}">${safeText(order.status)}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Discount</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+        <div class="summary">
+          <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
+          <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>
+          <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(order.total_amount - order.paid_amount)}</span></div>
+          <div class="summary-row total"><span>Grand Total:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
+        </div>
+      `;
+      printContent(content, `Order ${order.order_number}`);
+    }
+  }, [isAdmin]);
 
   const printAllOrders = useCallback(() => {
     const ordersHtml = filteredOrders.map(order => `
@@ -425,8 +437,10 @@ const Orders: React.FC = () => {
 
     const content = `
       <div class="header">
-        <h1>AR Traders</h1>
-        <p>Orders Report</p>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <div class="company-address">${safeText(COMPANY_INFO.address)}</div>
+        <div class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | Ph: ${safeText(COMPANY_INFO.phone2)}</div>
+        <p class="subtitle">Orders Report</p>
       </div>
       <div class="info-grid">
         <div class="info-item"><span class="info-label">Total Orders:</span><span class="info-value">${safeText(filteredOrders.length)}</span></div>
@@ -649,6 +663,16 @@ const Orders: React.FC = () => {
           onPaidAmountChange={setEditPaidAmount}
           onSubmit={handleUpdateOrder}
           onClose={() => setShowEditModal(false)}
+        />
+      )}
+
+      {showPrintModal && printingOrder && (
+        <PrintOrderModal
+          order={printingOrder}
+          onClose={() => {
+            setShowPrintModal(false);
+            setPrintingOrder(null);
+          }}
         />
       )}
     </div>

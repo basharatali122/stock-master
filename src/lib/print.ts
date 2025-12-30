@@ -22,6 +22,14 @@ export const safeText = (text: string | number | null | undefined): string => {
   return escapeHtml(String(text));
 };
 
+// Company information for printing
+export const COMPANY_INFO = {
+  name: 'AR Traders',
+  address: 'U Bank Street AR Traders',
+  phone1: '+92 322 6675195',
+  phone2: '+92 304 4362762',
+};
+
 export const printContent = (content: string, title: string) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
@@ -60,9 +68,20 @@ export const printContent = (content: string, title: string) => {
           font-size: 24px;
           margin-bottom: 5px;
         }
-        .header p {
+        .header .company-address {
+          color: #444;
+          font-size: 12px;
+          margin-top: 5px;
+        }
+        .header .company-phones {
           color: #666;
           font-size: 11px;
+          margin-top: 3px;
+        }
+        .header p.subtitle {
+          color: #666;
+          font-size: 11px;
+          margin-top: 8px;
         }
         .info-grid {
           display: grid;
@@ -119,6 +138,9 @@ export const printContent = (content: string, title: string) => {
           margin-top: 10px;
           padding-top: 10px;
         }
+        .summary-row.discount {
+          color: #166534;
+        }
         .footer {
           margin-top: 30px;
           padding-top: 15px;
@@ -147,7 +169,7 @@ export const printContent = (content: string, title: string) => {
     <body>
       ${content}
       <div class="footer">
-        <p>Generated on ${generatedDate} | AR Traders Distribution System</p>
+        <p>Generated on ${generatedDate} | ${escapeHtml(COMPANY_INFO.name)} Distribution System</p>
       </div>
       <script>
         window.onload = function() {
