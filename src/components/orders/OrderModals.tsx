@@ -1,5 +1,5 @@
-import React, { memo, useEffect, useState, useMemo } from 'react';
-import { X, Loader2, ShoppingCart, AlertTriangle, Calendar, Package, Box } from 'lucide-react';
+import React, { memo, useEffect, useState, useMemo, useRef } from 'react';
+import { X, Loader2, ShoppingCart, AlertTriangle, Calendar, Package, Box, Search, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -265,6 +265,30 @@ export const NewOrderModal = memo(({
   const [loadingCredits, setLoadingCredits] = useState(false);
   const [totalPendingDues, setTotalPendingDues] = useState(0);
   const [liveProducts, setLiveProducts] = useState<Product[]>(products);
+  const [productSearch, setProductSearch] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const productSearchRef = useRef<HTMLDivElement>(null);
+
+  // Filter products based on search
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return liveProducts;
+    const searchLower = productSearch.toLowerCase();
+    return liveProducts.filter(p => 
+      p.name.toLowerCase().includes(searchLower) ||
+      (p.product_code && p.product_code.toLowerCase().includes(searchLower))
+    );
+  }, [liveProducts, productSearch]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (productSearchRef.current && !productSearchRef.current.contains(event.target as Node)) {
+        setShowProductDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Get selected product info
   const selectedProductData = useMemo(() => {
@@ -430,17 +454,92 @@ export const NewOrderModal = memo(({
           <div>
             <label className="mb-1.5 block text-sm font-medium">Add Products</label>
             <div className="flex items-center gap-2">
-              <select className="input-field flex-1" value={selectedProduct} onChange={(e) => onProductChange(e.target.value)} disabled={submitting}>
-                <option value="">Select product</option>
-                {liveProducts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.product_code ? `[${p.product_code}] ` : ''}{p.name} - Rs. {p.price} ({p.stock_quantity} in stock)
-                  </option>
-                ))}
-              </select>
+              <div className="relative flex-1" ref={productSearchRef}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search products by name or code..."
+                    className="input-field pl-10 pr-8"
+                    value={productSearch}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      setShowProductDropdown(true);
+                      if (!e.target.value) onProductChange('');
+                    }}
+                    onFocus={() => setShowProductDropdown(true)}
+                    disabled={submitting}
+                  />
+                  {selectedProduct && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setProductSearch('');
+                        onProductChange('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {showProductDropdown && (
+                  <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-elevated">
+                    {filteredProducts.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                        No products found
+                      </div>
+                    ) : (
+                      filteredProducts.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className={`w-full px-4 py-2 text-left hover:bg-muted/50 flex items-center justify-between transition-colors ${
+                            selectedProduct === p.id ? 'bg-primary/10' : ''
+                          } ${p.stock_quantity === 0 ? 'opacity-50' : ''}`}
+                          onClick={() => {
+                            onProductChange(p.id);
+                            setProductSearch(p.product_code ? `[${p.product_code}] ${p.name}` : p.name);
+                            setShowProductDropdown(false);
+                          }}
+                          disabled={submitting || p.stock_quantity === 0}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {p.product_code && (
+                                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">
+                                  {p.product_code}
+                                </span>
+                              )}
+                              <span className="font-medium truncate">{p.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              <span>Rs. {p.price.toLocaleString()}</span>
+                              {p.discount_percentage > 0 && (
+                                <span className="text-success">-{p.discount_percentage}%</span>
+                              )}
+                              <span className={p.stock_quantity < 10 ? 'text-destructive' : p.stock_quantity < 50 ? 'text-warning' : ''}>
+                                {p.stock_quantity} in stock
+                              </span>
+                            </div>
+                          </div>
+                          {selectedProduct === p.id && (
+                            <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               <input type="number" placeholder="Qty" className="input-field w-20" min="1" value={quantity} onChange={(e) => onQuantityChange(e.target.value)} disabled={submitting} />
               <button type="button" onClick={onAddItem} className="btn-accent" disabled={submitting}>Add</button>
             </div>
+            {filteredProducts.length > 0 && productSearch && !selectedProduct && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Found {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} matching "{productSearch}"
+              </p>
+            )}
           </div>
 
           {/* Real-time Stock Info for Selected Product */}
