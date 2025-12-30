@@ -103,13 +103,15 @@ const OrderActions = memo(({
       <Eye className="h-4 w-4 text-muted-foreground" />
     </button>
     {isAdmin && (
-      <button onClick={onEdit} className="rounded-lg p-2 hover:bg-muted" title="Edit">
-        <Edit2 className="h-4 w-4 text-muted-foreground" />
-      </button>
+      <>
+        <button onClick={onEdit} className="rounded-lg p-2 hover:bg-muted" title="Edit">
+          <Edit2 className="h-4 w-4 text-muted-foreground" />
+        </button>
+        <button onClick={onPrint} className="rounded-lg p-2 hover:bg-muted" title="Print">
+          <Printer className="h-4 w-4 text-muted-foreground" />
+        </button>
+      </>
     )}
-    <button onClick={onPrint} className="rounded-lg p-2 hover:bg-muted" title="Print">
-      <Printer className="h-4 w-4 text-muted-foreground" />
-    </button>
   </div>
 ));
 
@@ -283,23 +285,10 @@ const Orders: React.FC = () => {
       return;
     }
 
-    // Validate paid amount
-    const total = calculateTotal();
-    const paid = paymentType === 'paid' ? total : (parseFloat(paidAmount) || 0);
-    
-    if (paid < 0) {
-      toast.error('Paid amount cannot be negative');
-      return;
-    }
-    
-    if (paid > total * 2) {
-      toast.error('Paid amount seems too high');
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const paymentStatus = paid >= total ? 'paid' : paid > 0 ? 'partial' : 'pending';
+      // For order bookers, default to pending payment - admin will update later
+      const total = calculateTotal();
 
       const orderNumber = `ORD-${Date.now()}`;
       const { data: orderData, error: orderError } = await supabase
@@ -309,9 +298,9 @@ const Orders: React.FC = () => {
           shop_id: selectedShop,
           booker_id: user.id,
           total_amount: total,
-          paid_amount: paid,
+          paid_amount: 0,
           status: 'pending',
-          payment_status: paymentStatus,
+          payment_status: 'pending',
         })
         .select()
         .single();
@@ -333,15 +322,13 @@ const Orders: React.FC = () => {
 
       if (itemsError) throw itemsError;
 
-      if (paid < total) {
-        const creditAmount = total - paid;
-        const shop = shops.find(s => s.id === selectedShop);
-        if (shop) {
-          await supabase
-            .from('shops')
-            .update({ credit_balance: creditAmount })
-            .eq('id', selectedShop);
-        }
+      // Update shop credit balance with full order amount (admin will collect payment)
+      const shop = shops.find(s => s.id === selectedShop);
+      if (shop) {
+        await supabase
+          .from('shops')
+          .update({ credit_balance: (shop.credit_balance || 0) + total })
+          .eq('id', selectedShop);
       }
 
       toast.success('Order created successfully');
@@ -353,7 +340,7 @@ const Orders: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedShop, orderItems, user, paymentType, paidAmount, calculateTotal, shops, refetch]);
+  }, [selectedShop, orderItems, user, calculateTotal, shops, refetch]);
 
   const resetForm = useCallback(() => {
     setSelectedShop('');
