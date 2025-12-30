@@ -1,13 +1,14 @@
-import React, { useState, useCallback, useMemo, memo } from 'react';
+import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, Loader2, Printer, Edit2 } from 'lucide-react';
+import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
 import { ViewOrderModal, EditOrderModal, NewOrderModal } from '@/components/orders/OrderModals';
 import { PrintOrderModal } from '@/components/orders/PrintOrderModal';
+import { RouteDeliveryPrintModal } from '@/components/orders/RouteDeliveryPrintModal';
 import { z } from 'zod';
 
 interface OrderItem {
@@ -127,6 +128,48 @@ const Orders: React.FC = () => {
     filteredOrders,
     stats
   } = useOrderFilters(orders);
+
+  // Route filter state
+  const [routeFilter, setRouteFilter] = useState('All');
+  const [routes, setRoutes] = useState<{ id: string; name: string; assigned_booker_id: string | null }[]>([]);
+  const [showRoutePrintModal, setShowRoutePrintModal] = useState(false);
+
+  // Fetch routes for admin
+  useEffect(() => {
+    if (isAdmin) {
+      supabase
+        .from('routes')
+        .select('id, name, assigned_booker_id')
+        .eq('is_active', true)
+        .order('name')
+        .then(({ data }) => {
+          if (data) setRoutes(data);
+        });
+    }
+  }, [isAdmin]);
+
+  // Filter orders by route
+  const routeFilteredOrders = useMemo(() => {
+    if (routeFilter === 'All') return filteredOrders;
+    return filteredOrders.filter(order => order.shops?.routes?.name === routeFilter);
+  }, [filteredOrders, routeFilter]);
+
+  // Route-specific stats
+  const routeStats = useMemo(() => {
+    const totalSales = routeFilteredOrders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
+    const totalPaid = routeFilteredOrders.reduce((acc, order) => acc + (order.paid_amount || 0), 0);
+    const totalCredit = totalSales - totalPaid;
+    return { totalSales, totalPaid, totalCredit, totalOrders: routeFilteredOrders.length };
+  }, [routeFilteredOrders]);
+
+  // Get booker name for selected route
+  const selectedRouteBooker = useMemo(() => {
+    if (routeFilter === 'All') return undefined;
+    const route = routes.find(r => r.name === routeFilter);
+    if (!route?.assigned_booker_id) return undefined;
+    const firstOrder = routeFilteredOrders.find(o => o.booker_name);
+    return firstOrder?.booker_name;
+  }, [routeFilter, routes, routeFilteredOrders]);
 
   // Modal states
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
@@ -423,7 +466,8 @@ const Orders: React.FC = () => {
   }, [isAdmin]);
 
   const printAllOrders = useCallback(() => {
-    const ordersHtml = filteredOrders.map(order => `
+    const ordersToprint = routeFilteredOrders;
+    const ordersHtml = ordersToprint.map(order => `
       <tr>
         <td>${safeText(order.order_number)}</td>
         <td>${safeText(order.shops?.name || 'N/A')}</td>
@@ -435,18 +479,19 @@ const Orders: React.FC = () => {
       </tr>
     `).join('');
 
+    const routeTitle = routeFilter !== 'All' ? ` - Route: ${routeFilter}` : '';
     const content = `
       <div class="header">
         <h1>${safeText(COMPANY_INFO.name)}</h1>
         <div class="company-address">${safeText(COMPANY_INFO.address)}</div>
         <div class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | Ph: ${safeText(COMPANY_INFO.phone2)}</div>
-        <p class="subtitle">Orders Report</p>
+        <p class="subtitle">Orders Report${routeTitle}</p>
       </div>
       <div class="info-grid">
-        <div class="info-item"><span class="info-label">Total Orders:</span><span class="info-value">${safeText(filteredOrders.length)}</span></div>
-        <div class="info-item"><span class="info-label">Total Sales:</span><span class="info-value">${formatCurrencyForPrint(stats.totalSales)}</span></div>
-        <div class="info-item"><span class="info-label">Cash Received:</span><span class="info-value">${formatCurrencyForPrint(stats.totalPaid)}</span></div>
-        <div class="info-item"><span class="info-label">Credit/Pending:</span><span class="info-value">${formatCurrencyForPrint(stats.totalCredit)}</span></div>
+        <div class="info-item"><span class="info-label">Total Orders:</span><span class="info-value">${safeText(ordersToprint.length)}</span></div>
+        <div class="info-item"><span class="info-label">Total Sales:</span><span class="info-value">${formatCurrencyForPrint(routeStats.totalSales)}</span></div>
+        <div class="info-item"><span class="info-label">Cash Received:</span><span class="info-value">${formatCurrencyForPrint(routeStats.totalPaid)}</span></div>
+        <div class="info-item"><span class="info-label">Credit/Pending:</span><span class="info-value">${formatCurrencyForPrint(routeStats.totalCredit)}</span></div>
       </div>
       <table>
         <thead>
@@ -463,8 +508,8 @@ const Orders: React.FC = () => {
         <tbody>${ordersHtml}</tbody>
       </table>
     `;
-    printContent(content, 'Orders Report');
-  }, [filteredOrders, stats]);
+    printContent(content, `Orders Report${routeTitle}`);
+  }, [routeFilteredOrders, routeStats, routeFilter]);
 
   // Memoized columns configuration
   const columns = useMemo(() => [
@@ -544,7 +589,17 @@ const Orders: React.FC = () => {
             <h1 className="page-title">Orders</h1>
             <p className="page-subtitle">{isAdmin ? 'View and manage all orders' : 'Create and track your orders'}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {isAdmin && routeFilter !== 'All' && (
+              <button 
+                onClick={() => setShowRoutePrintModal(true)} 
+                className="btn-secondary"
+                title="Print delivery summary for selected route"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Print Route Delivery
+              </button>
+            )}
             <button onClick={printAllOrders} className="btn-secondary">
               <Printer className="mr-2 h-4 w-4" />
               Print Report
@@ -557,28 +612,48 @@ const Orders: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input 
-          type="text" 
-          placeholder="Search by Order ID (e.g., ORD-...) or shop name..." 
-          value={searchQuery} 
-          onChange={(e) => setSearchQuery(e.target.value)} 
-          className="input-field pl-10"
+          <input 
+            type="text" 
+            placeholder="Search by Order ID (e.g., ORD-...) or shop name..." 
+            value={searchQuery} 
+            onChange={(e) => setSearchQuery(e.target.value)} 
+            className="input-field pl-10"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="text-sm text-muted-foreground self-center">Status:</span>
-          {statusFilters.map((status) => (
-            <FilterButton
-              key={status}
-              label={status}
-              isActive={statusFilter === status}
-              onClick={() => setStatusFilter(status)}
-            />
-          ))}
-        </div>
+        
+        {/* Route Filter for Admin */}
+        {isAdmin && routes.length > 0 && (
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={routeFilter}
+              onChange={(e) => setRouteFilter(e.target.value)}
+              className="input-field min-w-[180px]"
+            >
+              <option value="All">All Routes</option>
+              {routes.map((route) => (
+                <option key={route.id} value={route.name}>
+                  {route.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <span className="text-sm text-muted-foreground self-center">Status:</span>
+        {statusFilters.map((status) => (
+          <FilterButton
+            key={status}
+            label={status}
+            isActive={statusFilter === status}
+            onClick={() => setStatusFilter(status)}
+          />
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -596,25 +671,25 @@ const Orders: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Orders</p>
-          <p className="mt-1 text-2xl font-bold">{stats.totalOrders}</p>
+          <p className="mt-1 text-2xl font-bold">{routeStats.totalOrders}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Sales</p>
-          <p className="mt-1 text-2xl font-bold">{formatCurrency(stats.totalSales)}</p>
+          <p className="mt-1 text-2xl font-bold">{formatCurrency(routeStats.totalSales)}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Cash Received</p>
-          <p className="mt-1 text-2xl font-bold text-success">{formatCurrency(stats.totalPaid)}</p>
+          <p className="mt-1 text-2xl font-bold text-success">{formatCurrency(routeStats.totalPaid)}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Credit/Pending</p>
-          <p className="mt-1 text-2xl font-bold text-warning">{formatCurrency(stats.totalCredit)}</p>
+          <p className="mt-1 text-2xl font-bold text-warning">{formatCurrency(routeStats.totalCredit)}</p>
         </div>
       </div>
 
       <DataTable 
         columns={columns} 
-        data={filteredOrders} 
+        data={routeFilteredOrders} 
         keyExtractor={(item) => item.id} 
         emptyMessage="No orders found" 
       />
@@ -673,6 +748,17 @@ const Orders: React.FC = () => {
             setShowPrintModal(false);
             setPrintingOrder(null);
           }}
+        />
+      )}
+
+      {showRoutePrintModal && routeFilter !== 'All' && (
+        <RouteDeliveryPrintModal
+          routeName={routeFilter}
+          orders={routeFilteredOrders}
+          shops={shops}
+          products={products}
+          bookerName={selectedRouteBooker}
+          onClose={() => setShowRoutePrintModal(false)}
         />
       )}
     </div>
