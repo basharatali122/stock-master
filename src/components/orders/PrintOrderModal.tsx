@@ -1,5 +1,5 @@
-import React, { memo, useState, useMemo } from 'react';
-import { X, Printer, Percent } from 'lucide-react';
+import React, { memo, useState, useMemo, useEffect } from 'react';
+import { X, Printer, Percent, Edit2 } from 'lucide-react';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 
 interface OrderItem {
@@ -32,37 +32,78 @@ interface PrintOrderModalProps {
   onClose: () => void;
 }
 
+interface AdjustedItem {
+  id: string;
+  adjustedPrice: number;
+  adjustedTotal: number;
+}
+
 export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) => {
   const [customDiscount, setCustomDiscount] = useState('');
   const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('percentage');
+  const [adjustedItems, setAdjustedItems] = useState<Record<string, AdjustedItem>>({});
+
+  // Initialize adjusted items with original prices
+  useEffect(() => {
+    if (order.order_items) {
+      const initialAdjustments: Record<string, AdjustedItem> = {};
+      order.order_items.forEach(item => {
+        initialAdjustments[item.id] = {
+          id: item.id,
+          adjustedPrice: item.unit_price,
+          adjustedTotal: item.quantity * item.unit_price * (1 - (item.discount_applied || 0) / 100),
+        };
+      });
+      setAdjustedItems(initialAdjustments);
+    }
+  }, [order.order_items]);
+
+  const handlePriceChange = (itemId: string, newPrice: number, quantity: number, discountApplied: number) => {
+    const adjustedTotal = quantity * newPrice * (1 - (discountApplied || 0) / 100);
+    setAdjustedItems(prev => ({
+      ...prev,
+      [itemId]: {
+        id: itemId,
+        adjustedPrice: newPrice,
+        adjustedTotal,
+      },
+    }));
+  };
+
+  const adjustedSubtotal = useMemo(() => {
+    return Object.values(adjustedItems).reduce((sum, item) => sum + item.adjustedTotal, 0);
+  }, [adjustedItems]);
 
   const discountValue = parseFloat(customDiscount) || 0;
 
   const { discountAmount, finalTotal } = useMemo(() => {
     let discount = 0;
     if (discountType === 'percentage') {
-      discount = (order.total_amount * discountValue) / 100;
+      discount = (adjustedSubtotal * discountValue) / 100;
     } else {
       discount = discountValue;
     }
     // Ensure discount doesn't exceed total
-    discount = Math.min(discount, order.total_amount);
+    discount = Math.min(discount, adjustedSubtotal);
     return {
       discountAmount: discount,
-      finalTotal: order.total_amount - discount,
+      finalTotal: adjustedSubtotal - discount,
     };
-  }, [order.total_amount, discountValue, discountType]);
+  }, [adjustedSubtotal, discountValue, discountType]);
 
   const handlePrint = () => {
     const itemsHtml = order.order_items?.map(item => {
+      const adjustment = adjustedItems[item.id];
+      const displayPrice = adjustment?.adjustedPrice || item.unit_price;
+      const displayTotal = adjustment?.adjustedTotal || item.total_price;
       const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
       return `
       <tr>
         <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
         <td>${safeText(item.quantity)}</td>
-        <td>${formatCurrencyForPrint(item.unit_price)}</td>
+        <td>${formatCurrencyForPrint(displayPrice)}</td>
         <td>${safeText(item.discount_applied || 0)}%</td>
-        <td>${formatCurrencyForPrint(item.total_price)}</td>
+        <td>${formatCurrencyForPrint(displayTotal)}</td>
       </tr>
     `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
 
@@ -101,7 +142,7 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
         <tbody>${itemsHtml}</tbody>
       </table>
       <div class="summary">
-        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
+        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(adjustedSubtotal)}</span></div>
         ${discountHtml}
         <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>
         <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(Math.max(0, finalTotal - order.paid_amount))}</span></div>
@@ -114,7 +155,7 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
-      <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-foreground">Print Invoice</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -133,9 +174,59 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
               <span className="text-muted-foreground">Shop:</span>
               <span className="font-medium">{order.shops?.name}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Original Total:</span>
-              <span className="font-medium">Rs. {order.total_amount.toLocaleString()}</span>
+          </div>
+
+          {/* Product Price Adjustments */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium flex items-center gap-2">
+              <Edit2 className="h-4 w-4" />
+              Adjust Product Prices (Optional)
+            </label>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Product</th>
+                    <th className="text-center p-2 font-medium w-16">Qty</th>
+                    <th className="text-center p-2 font-medium w-28">Price</th>
+                    <th className="text-right p-2 font-medium w-24">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.order_items?.map(item => (
+                    <tr key={item.id} className="border-t border-border">
+                      <td className="p-2">
+                        <span className="text-xs text-muted-foreground">
+                          {item.products?.product_code && `[${item.products.product_code}] `}
+                        </span>
+                        {item.products?.name || 'N/A'}
+                      </td>
+                      <td className="p-2 text-center">{item.quantity}</td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          className="input-field w-full text-center text-sm py-1"
+                          value={adjustedItems[item.id]?.adjustedPrice || item.unit_price}
+                          min="0"
+                          onChange={(e) => handlePriceChange(
+                            item.id,
+                            parseFloat(e.target.value) || 0,
+                            item.quantity,
+                            item.discount_applied || 0
+                          )}
+                        />
+                      </td>
+                      <td className="p-2 text-right font-medium">
+                        Rs. {(adjustedItems[item.id]?.adjustedTotal || item.total_price).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-between text-sm font-medium bg-muted/50 p-3 rounded-lg">
+              <span>Adjusted Subtotal:</span>
+              <span>Rs. {adjustedSubtotal.toLocaleString()}</span>
             </div>
           </div>
 
@@ -159,7 +250,7 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
                 placeholder={discountType === 'percentage' ? 'e.g. 5' : 'e.g. 500'}
                 className="input-field flex-1"
                 min="0"
-                max={discountType === 'percentage' ? '100' : order.total_amount}
+                max={discountType === 'percentage' ? '100' : adjustedSubtotal}
                 value={customDiscount}
                 onChange={(e) => setCustomDiscount(e.target.value)}
               />
@@ -179,9 +270,11 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
                 Rs. {finalTotal.toLocaleString()}
               </span>
             </div>
-            {discountAmount > 0 && (
+            {(discountAmount > 0 || adjustedSubtotal !== order.total_amount) && (
               <p className="text-xs text-muted-foreground mt-1">
-                Original: Rs. {order.total_amount.toLocaleString()} - Discount: Rs. {discountAmount.toLocaleString()}
+                Original: Rs. {order.total_amount.toLocaleString()}
+                {adjustedSubtotal !== order.total_amount && ` → Adjusted: Rs. ${adjustedSubtotal.toLocaleString()}`}
+                {discountAmount > 0 && ` - Discount: Rs. ${discountAmount.toLocaleString()}`}
               </p>
             )}
           </div>
