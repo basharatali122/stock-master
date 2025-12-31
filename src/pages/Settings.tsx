@@ -1,10 +1,22 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, Lock, Bell, Shield, Save } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Lock, Bell, Shield, Save, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Settings: React.FC = () => {
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  
+  // Profile form state
+  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [phone, setPhone] = useState(profile?.phone || '');
+  const [profileLoading, setProfileLoading] = useState(false);
+  
+  // Password form state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -12,6 +24,78 @@ const Settings: React.FC = () => {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'preferences', label: 'Preferences', icon: Shield },
   ];
+
+  // Update profile
+  const handleUpdateProfile = async () => {
+    if (!user || !profile) return;
+    
+    if (!fullName.trim()) {
+      toast.error('Full name is required');
+      return;
+    }
+
+    setProfileLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName.trim(),
+          phone: phone.trim() || null,
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      toast.success('Profile updated successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update profile');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  // Change password
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+      
+      toast.success('Password updated successfully');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Update form values when profile changes
+  React.useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setPhone(profile.phone || '');
+    }
+  }, [profile]);
 
   return (
     <div className="space-y-6">
@@ -56,25 +140,25 @@ const Settings: React.FC = () => {
 
                 <div className="flex items-center gap-6">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-3xl font-bold text-primary-foreground">
-                    {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                    {fullName?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
                   <div>
-                    <button className="btn-secondary">Change Photo</button>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      JPG, PNG or GIF. Max 2MB.
-                    </p>
+                    <p className="font-medium">{fullName || 'User'}</p>
+                    <p className="text-sm text-muted-foreground">{profile?.email}</p>
                   </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
-                      Full Name
+                      Full Name <span className="text-destructive">*</span>
                     </label>
                     <input
                       type="text"
-                      defaultValue={profile?.full_name || ''}
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
                       className="input-field"
+                      placeholder="Enter your full name"
                     />
                   </div>
                   <div>
@@ -83,9 +167,13 @@ const Settings: React.FC = () => {
                     </label>
                     <input
                       type="email"
-                      defaultValue={profile?.email || ''}
-                      className="input-field"
+                      value={profile?.email || ''}
+                      className="input-field bg-muted"
+                      disabled
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Email cannot be changed
+                    </p>
                   </div>
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
@@ -93,8 +181,10 @@ const Settings: React.FC = () => {
                     </label>
                     <input
                       type="tel"
-                      defaultValue={profile?.phone || ''}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       className="input-field"
+                      placeholder="Enter your phone number"
                     />
                   </div>
                   <div>
@@ -102,15 +192,23 @@ const Settings: React.FC = () => {
                     <input
                       type="text"
                       value={isAdmin ? 'Administrator' : 'Order Booker'}
-                      className="input-field"
+                      className="input-field bg-muted"
                       disabled
                     />
                   </div>
                 </div>
 
                 <div className="flex justify-end">
-                  <button className="btn-primary">
-                    <Save className="mr-2 h-4 w-4" />
+                  <button 
+                    className="btn-primary"
+                    onClick={handleUpdateProfile}
+                    disabled={profileLoading}
+                  >
+                    {profileLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
                     Save Changes
                   </button>
                 </div>
@@ -120,48 +218,53 @@ const Settings: React.FC = () => {
             {activeTab === 'security' && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-semibold">Security Settings</h2>
+                  <h2 className="text-lg font-semibold">Change Password</h2>
                   <p className="text-sm text-muted-foreground">
-                    Manage your password and security preferences
+                    Update your password to keep your account secure
                   </p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 max-w-md">
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
-                      Current Password
+                      New Password <span className="text-destructive">*</span>
                     </label>
                     <input
                       type="password"
                       className="input-field"
-                      placeholder="••••••••"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Must be at least 6 characters
+                    </p>
                   </div>
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
-                      New Password
+                      Confirm New Password <span className="text-destructive">*</span>
                     </label>
                     <input
                       type="password"
                       className="input-field"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      className="input-field"
-                      placeholder="••••••••"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                     />
                   </div>
                 </div>
 
                 <div className="flex justify-end">
-                  <button className="btn-primary">
-                    <Lock className="mr-2 h-4 w-4" />
+                  <button 
+                    className="btn-primary"
+                    onClick={handleChangePassword}
+                    disabled={passwordLoading}
+                  >
+                    {passwordLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Lock className="mr-2 h-4 w-4" />
+                    )}
                     Update Password
                   </button>
                 </div>
