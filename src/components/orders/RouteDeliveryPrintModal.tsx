@@ -418,8 +418,8 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content max-w-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+      <div className="bg-card border border-border rounded-xl shadow-elevated p-6 w-full max-w-lg mx-4 animate-scale-in">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold">Print Route Delivery Summary</h2>
