@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/ui/StatCard';
@@ -58,6 +58,26 @@ interface BookerDailySale {
   daily_orders: number;
 }
 
+// Memoized booker card component
+const BookerCard = memo(({ booker }: { booker: BookerDailySale }) => (
+  <div
+    className="flex items-center justify-between rounded-lg border border-border p-4 hover:border-accent/50 transition-colors"
+  >
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20">
+        <Users className="h-5 w-5 text-accent" />
+      </div>
+      <div>
+        <p className="font-medium text-foreground">{booker.booker_name}</p>
+        <p className="text-sm text-muted-foreground">{booker.daily_orders} orders</p>
+      </div>
+    </div>
+    <p className="text-lg font-semibold text-accent">Rs. {booker.daily_sales.toLocaleString()}</p>
+  </div>
+));
+
+BookerCard.displayName = 'BookerCard';
+
 const Dashboard: React.FC = () => {
   const { isAdmin, profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
@@ -77,48 +97,23 @@ const Dashboard: React.FC = () => {
   const [bookerDailySales, setBookerDailySales] = useState<BookerDailySale[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-
-    // Set up real-time subscriptions for orders
-    const ordersChannel = supabase
-      .channel('dashboard-orders')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          fetchDashboardData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'order_items' },
-        () => {
-          fetchDashboardData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(ordersChannel);
-    };
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       // Get today's date range
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
 
-      // Fetch counts and daily orders
-      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes, dailyOrdersRes] = await Promise.all([
+      // Fetch all data in parallel for maximum performance
+      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes, dailyOrdersRes, recentOrdersRes, lowStockRes] = await Promise.all([
         supabase.from('orders').select('id, total_amount, paid_amount', { count: 'exact' }),
         supabase.from('shops').select('id', { count: 'exact' }),
         supabase.from('products').select('id, stock_quantity', { count: 'exact' }),
         supabase.from('routes').select('id', { count: 'exact' }).eq('is_active', true),
         supabase.from('profiles').select('id', { count: 'exact' }).eq('status', 'pending'),
         supabase.from('orders').select('id, total_amount, booker_id, created_at').gte('created_at', startOfDay).lt('created_at', endOfDay),
+        supabase.from('orders').select(`id, order_number, total_amount, payment_status, created_at, shops (name), profiles:booker_id (full_name)`).order('created_at', { ascending: false }).limit(5),
+        supabase.from('products').select('id, name, category, stock_quantity').lt('stock_quantity', 50).order('stock_quantity').limit(5),
       ]);
 
       const totalSales = ordersRes.data?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
@@ -172,23 +167,9 @@ const Dashboard: React.FC = () => {
         dailyOrders,
       });
 
-      // Fetch recent orders with related data
-      const { data: orders } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          total_amount,
-          payment_status,
-          created_at,
-          shops (name),
-          profiles:booker_id (full_name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (orders) {
-        setRecentOrders(orders.map((o: any) => ({
+      // Set recent orders
+      if (recentOrdersRes.data) {
+        setRecentOrders(recentOrdersRes.data.map((o: any) => ({
           id: o.id,
           order_number: o.order_number,
           shop_name: o.shops?.name || 'Unknown',
@@ -200,29 +181,44 @@ const Dashboard: React.FC = () => {
         })));
       }
 
-      // Fetch low stock products
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, name, category, stock_quantity')
-        .lt('stock_quantity', 50)
-        .order('stock_quantity')
-        .limit(5);
-
-      if (products) {
-        setLowStockProducts(products);
+      // Set low stock products
+      if (lowStockRes.data) {
+        setLowStockProducts(lowStockRes.data);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const formatCurrency = (amount: number) => {
-    return `Rs. ${amount.toLocaleString()}`;
-  };
+  useEffect(() => {
+    fetchDashboardData();
 
-  const orderColumns = [
+    // Set up real-time subscriptions for orders - debounced
+    let timeoutId: NodeJS.Timeout;
+    const ordersChannel = supabase
+      .channel('dashboard-orders')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(fetchDashboardData, 500);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(timeoutId);
+      supabase.removeChannel(ordersChannel);
+    };
+  }, [fetchDashboardData]);
+
+
+  const formatCurrency = useCallback((amount: number) => `Rs. ${amount.toLocaleString()}`, []);
+
+  const orderColumns = useMemo(() => [
     { key: 'shop_name', header: 'Shop' },
     { key: 'booker_name', header: 'Booker' },
     {
@@ -247,9 +243,9 @@ const Dashboard: React.FC = () => {
         </span>
       ),
     },
-  ];
+  ], [formatCurrency]);
 
-  const stockColumns = [
+  const stockColumns = useMemo(() => [
     { key: 'name', header: 'Product' },
     { key: 'category', header: 'Category' },
     {
@@ -259,7 +255,7 @@ const Dashboard: React.FC = () => {
         <span className="badge-destructive">{item.stock_quantity} units</span>
       ),
     },
-  ];
+  ], []);
 
   return (
     <div className="space-y-6">
@@ -324,21 +320,7 @@ const Dashboard: React.FC = () => {
           <h2 className="section-title">Order Booker Daily Sales</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {bookerDailySales.map((booker) => (
-              <div
-                key={booker.booker_id}
-                className="flex items-center justify-between rounded-lg border border-border p-4 hover:border-accent/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20">
-                    <Users className="h-5 w-5 text-accent" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{booker.booker_name}</p>
-                    <p className="text-sm text-muted-foreground">{booker.daily_orders} orders</p>
-                  </div>
-                </div>
-                <p className="text-lg font-semibold text-accent">{formatCurrency(booker.daily_sales)}</p>
-              </div>
+              <BookerCard key={booker.booker_id} booker={booker} />
             ))}
           </div>
         </div>

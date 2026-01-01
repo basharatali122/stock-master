@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
@@ -48,7 +48,7 @@ const Products: React.FC = () => {
     boxes_per_carton: '24',
   });
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('products')
@@ -62,11 +62,11 @@ const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,17 +224,28 @@ const Products: React.FC = () => {
     });
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.product_code && product.product_code.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (product.brand && product.brand.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory =
-      selectedCategory === 'All' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase();
+    return products.filter((product) => {
+      const matchesSearch =
+        product.name.toLowerCase().includes(searchLower) ||
+        (product.product_code && product.product_code.toLowerCase().includes(searchLower)) ||
+        (product.brand && product.brand.toLowerCase().includes(searchLower));
+      const matchesCategory =
+        selectedCategory === 'All' || product.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategory]);
 
-  const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString()}`;
+  const formatCurrency = useCallback((amount: number) => `Rs. ${amount.toLocaleString()}`, []);
+  
+  // Memoized stats
+  const statsData = useMemo(() => ({
+    totalProducts: products.length,
+    totalStockValue: products.reduce((acc, p) => acc + p.price * p.stock_quantity, 0),
+    lowStockCount: products.filter((p) => p.stock_quantity < 50).length,
+    categoryCount: new Set(products.map(p => p.category)).size,
+  }), [products]);
 
   const columns = [
     {
@@ -388,26 +399,24 @@ const Products: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Products</p>
-          <p className="mt-1 text-2xl font-bold">{products.length}</p>
+          <p className="mt-1 text-2xl font-bold">{statsData.totalProducts}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Stock Value</p>
           <p className="mt-1 text-2xl font-bold">
-            {formatCurrency(
-              products.reduce((acc, p) => acc + p.price * p.stock_quantity, 0)
-            )}
+            {formatCurrency(statsData.totalStockValue)}
           </p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Low Stock Items</p>
           <p className="mt-1 text-2xl font-bold text-warning">
-            {products.filter((p) => p.stock_quantity < 50).length}
+            {statsData.lowStockCount}
           </p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Categories</p>
           <p className="mt-1 text-2xl font-bold">
-            {new Set(products.map(p => p.category)).size}
+            {statsData.categoryCount}
           </p>
         </div>
       </div>
