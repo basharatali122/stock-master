@@ -27,6 +27,11 @@ interface Route {
   cities?: { name: string };
 }
 
+interface OrderBooker {
+  id: string;
+  full_name: string;
+}
+
 const Shops: React.FC = () => {
   const { isAdmin, user } = useAuth();
   const [shops, setShops] = useState<Shop[]>([]);
@@ -38,6 +43,10 @@ const Shops: React.FC = () => {
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedShopForHistory, setSelectedShopForHistory] = useState<Shop | null>(null);
+  const [showPrintCreditsModal, setShowPrintCreditsModal] = useState(false);
+  const [orderBookers, setOrderBookers] = useState<OrderBooker[]>([]);
+  const [selectedBookerId, setSelectedBookerId] = useState<string>('all');
+  const [loadingBookers, setLoadingBookers] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -278,10 +287,36 @@ const Shops: React.FC = () => {
     return { totalCredit: total, shopsWithCredit: withCredit, shopsWithZeroCredit: zeroCredit };
   }, [shops]);
 
+  const fetchOrderBookers = async () => {
+    setLoadingBookers(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, user_id')
+        .eq('status', 'approved')
+        .order('full_name');
+      
+      if (error) throw error;
+      
+      // Map to use user_id as the id since orders use booker_id which is user_id
+      setOrderBookers((data || []).map(p => ({ id: p.user_id, full_name: p.full_name })));
+    } catch (error: any) {
+      toast.error('Failed to load order bookers: ' + error.message);
+    } finally {
+      setLoadingBookers(false);
+    }
+  };
+
+  const openPrintCreditsModal = () => {
+    setSelectedBookerId('all');
+    fetchOrderBookers();
+    setShowPrintCreditsModal(true);
+  };
+
   const handlePrintPendingCredits = async () => {
     try {
-      // Fetch all orders with pending payment (credit/partial/pending) along with shop and route info
-      const { data: ordersWithDues, error } = await supabase
+      // Build query for orders with pending payment
+      let query = supabase
         .from('orders')
         .select(`
           id,
@@ -290,6 +325,7 @@ const Shops: React.FC = () => {
           total_amount,
           paid_amount,
           payment_status,
+          booker_id,
           shops!inner(
             id,
             name,
@@ -300,12 +336,23 @@ const Shops: React.FC = () => {
         .in('payment_status', ['credit', 'partial', 'pending'])
         .order('created_at', { ascending: false });
 
+      // Filter by booker if selected
+      if (selectedBookerId !== 'all') {
+        query = query.eq('booker_id', selectedBookerId);
+      }
+
+      const { data: ordersWithDues, error } = await query;
+
       if (error) throw error;
 
       if (!ordersWithDues || ordersWithDues.length === 0) {
         toast.info('No pending credits found');
         return;
       }
+
+      // Get booker name for the report title
+      const selectedBooker = orderBookers.find(b => b.id === selectedBookerId);
+      const bookerName = selectedBookerId === 'all' ? 'All Order Bookers' : selectedBooker?.full_name || 'Unknown';
 
       const now = new Date();
       let tableRows = '';
@@ -336,7 +383,7 @@ const Shops: React.FC = () => {
       const content = `
         <div class="header">
           <h1>Pending Credits Report</h1>
-          <p>Consolidated view of all outstanding dues</p>
+          <p>Order Booker: ${bookerName}</p>
         </div>
         
         <div class="info-grid">
@@ -385,7 +432,8 @@ const Shops: React.FC = () => {
         </div>
       `;
 
-      printContent(content, 'Pending Credits Report');
+      printContent(content, `Pending Credits Report - ${bookerName}`);
+      setShowPrintCreditsModal(false);
     } catch (error: any) {
       toast.error('Failed to generate report: ' + error.message);
     }
@@ -493,7 +541,7 @@ const Shops: React.FC = () => {
             Add Shop
           </button>
           {isAdmin && (
-            <button onClick={handlePrintPendingCredits} className="btn-secondary">
+            <button onClick={openPrintCreditsModal} className="btn-secondary">
               <Printer className="mr-2 h-4 w-4" />
               Print Pending Credits
             </button>
@@ -748,6 +796,68 @@ const Shops: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Print Credits Modal */}
+      {showPrintCreditsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-border rounded-xl shadow-elevated p-6 w-full max-w-md mx-4 animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold">Print Pending Credits</h2>
+                <p className="text-sm text-muted-foreground">Select an order booker to filter</p>
+              </div>
+              <button
+                onClick={() => setShowPrintCreditsModal(false)}
+                className="rounded-lg p-2 hover:bg-muted"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Order Booker</label>
+                {loadingBookers ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading bookers...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedBookerId}
+                    onChange={(e) => setSelectedBookerId(e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="all">All Order Bookers</option>
+                    {orderBookers.map((booker) => (
+                      <option key={booker.id} value={booker.id}>
+                        {booker.full_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowPrintCreditsModal(false)}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePrintPendingCredits}
+                  className="btn-primary flex-1"
+                  disabled={loadingBookers}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Report
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
