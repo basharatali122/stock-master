@@ -6,22 +6,43 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import Auth from "@/pages/Auth";
-import Dashboard from "@/pages/Dashboard";
-import Products from "@/pages/Products";
-import RoutesPage from "@/pages/Routes";
-import Shops from "@/pages/Shops";
-import Orders from "@/pages/Orders";
-import Returns from "@/pages/Returns";
-import Users from "@/pages/Users";
-import Financials from "@/pages/Financials";
-import Cities from "@/pages/Cities";
-import Reports from "@/pages/Reports";
-import Settings from "@/pages/Settings";
-import MyRoutes from "@/pages/MyRoutes";
-import NotFound from "@/pages/NotFound";
+import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
-const queryClient = new QueryClient();
+// Lazy load pages for better performance
+const Auth = lazy(() => import("@/pages/Auth"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Products = lazy(() => import("@/pages/Products"));
+const RoutesPage = lazy(() => import("@/pages/Routes"));
+const Shops = lazy(() => import("@/pages/Shops"));
+const Orders = lazy(() => import("@/pages/Orders"));
+const Returns = lazy(() => import("@/pages/Returns"));
+const Users = lazy(() => import("@/pages/Users"));
+const Financials = lazy(() => import("@/pages/Financials"));
+const Cities = lazy(() => import("@/pages/Cities"));
+const Reports = lazy(() => import("@/pages/Reports"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const MyRoutes = lazy(() => import("@/pages/MyRoutes"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
+
+// Optimized QueryClient with better caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2, // 2 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes (previously cacheTime)
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -30,52 +51,54 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/auth" replace />} />
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Protected Routes */}
-            <Route element={<DashboardLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/auth" replace />} />
+              <Route path="/auth" element={<Auth />} />
               
-              {/* Admin-only routes */}
-              <Route path="/cities" element={
-                <ProtectedRoute requireAdmin>
-                  <Cities />
-                </ProtectedRoute>
-              } />
-              <Route path="/routes" element={
-                <ProtectedRoute requireAdmin>
-                  <RoutesPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/users" element={
-                <ProtectedRoute requireAdmin>
-                  <Users />
-                </ProtectedRoute>
-              } />
-              <Route path="/financials" element={
-                <ProtectedRoute requireAdmin>
-                  <Financials />
-                </ProtectedRoute>
-              } />
-              <Route path="/reports" element={
-                <ProtectedRoute requireAdmin>
-                  <Reports />
-                </ProtectedRoute>
-              } />
+              {/* Protected Routes */}
+              <Route element={<DashboardLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                
+                {/* Admin-only routes */}
+                <Route path="/cities" element={
+                  <ProtectedRoute requireAdmin>
+                    <Cities />
+                  </ProtectedRoute>
+                } />
+                <Route path="/routes" element={
+                  <ProtectedRoute requireAdmin>
+                    <RoutesPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/users" element={
+                  <ProtectedRoute requireAdmin>
+                    <Users />
+                  </ProtectedRoute>
+                } />
+                <Route path="/financials" element={
+                  <ProtectedRoute requireAdmin>
+                    <Financials />
+                  </ProtectedRoute>
+                } />
+                <Route path="/reports" element={
+                  <ProtectedRoute requireAdmin>
+                    <Reports />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Available to all authenticated users */}
+                <Route path="/my-routes" element={<MyRoutes />} />
+                <Route path="/shops" element={<Shops />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/orders" element={<Orders />} />
+                <Route path="/returns" element={<Returns />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
               
-              {/* Available to all authenticated users */}
-              <Route path="/my-routes" element={<MyRoutes />} />
-              <Route path="/shops" element={<Shops />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/returns" element={<Returns />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
