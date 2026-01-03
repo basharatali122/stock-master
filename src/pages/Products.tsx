@@ -396,17 +396,19 @@ const Products: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div className={`grid grid-cols-1 gap-4 ${isAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Total Products</p>
           <p className="mt-1 text-2xl font-bold">{statsData.totalProducts}</p>
         </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Total Stock Value</p>
-          <p className="mt-1 text-2xl font-bold">
-            {formatCurrency(statsData.totalStockValue)}
-          </p>
-        </div>
+        {isAdmin && (
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Total Stock Value</p>
+            <p className="mt-1 text-2xl font-bold">
+              {formatCurrency(statsData.totalStockValue)}
+            </p>
+          </div>
+        )}
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Low Stock Items</p>
           <p className="mt-1 text-2xl font-bold text-warning">
