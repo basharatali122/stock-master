@@ -48,7 +48,9 @@ interface Product {
 export function useOrders(isAdmin: boolean, userId: string | undefined) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
+  const [allShops, setAllShops] = useState<Shop[]>([]); // All shops for admin
   const [products, setProducts] = useState<Product[]>([]);
+  const [bookers, setBookers] = useState<{ user_id: string; full_name: string }[]>([]); // All bookers for admin
   const [loading, setLoading] = useState(true);
   const bookerCacheRef = useRef<Map<string, string>>(new Map());
 
@@ -58,27 +60,25 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const today = days[new Date().getDay()];
 
-      // Batch all queries in parallel
+      // Fetch orders query
+      let ordersQuery = supabase
+        .from('orders')
+        .select(`
+          *,
+          shops(name, routes(name)),
+          order_items(*, products(name, product_code))
+        `)
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (!isAdmin && userId) {
+        ordersQuery = ordersQuery.eq('booker_id', userId);
+      }
+
+      // Core queries for all users
       const [ordersResult, shopsResult, productsResult] = await Promise.all([
-        // Fetch orders with relations
-        (async () => {
-          let query = supabase
-            .from('orders')
-            .select(`
-              *,
-              shops(name, routes(name)),
-              order_items(*, products(name, product_code))
-            `)
-            .order('created_at', { ascending: false })
-            .limit(500); // Limit for performance
-
-          if (!isAdmin && userId) {
-            query = query.eq('booker_id', userId);
-          }
-
-          return query;
-        })(),
-        // Fetch shops from active routes that have today as an active day
+        ordersQuery,
+        // Fetch shops from active routes that have today as an active day (for order bookers)
         supabase
           .from('shops')
           .select('id, name, route_id, credit_balance, routes!inner(name, is_active, active_days)')
@@ -97,10 +97,32 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       if (shopsResult.error) throw shopsResult.error;
       if (productsResult.error) throw productsResult.error;
 
+      // For admin, also fetch all shops and all bookers
+      if (isAdmin) {
+        const [allShopsResult, bookersResult] = await Promise.all([
+          supabase
+            .from('shops')
+            .select('id, name, route_id, credit_balance, routes(name)')
+            .order('name'),
+          supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .eq('status', 'approved')
+            .order('full_name')
+        ]);
+
+        if (!allShopsResult.error && allShopsResult.data) {
+          setAllShops(allShopsResult.data);
+        }
+        if (!bookersResult.error && bookersResult.data) {
+          setBookers(bookersResult.data);
+        }
+      }
+
       const ordersData = ordersResult.data || [];
       
       // Get unique booker IDs that we don't have cached
-      const uniqueBookerIds = [...new Set(ordersData.map(o => o.booker_id))];
+      const uniqueBookerIds = [...new Set(ordersData.map(o => o.booker_id))] as string[];
       const uncachedIds = uniqueBookerIds.filter(id => !bookerCacheRef.current.has(id));
 
       // Batch fetch booker profiles (single query instead of N queries)
@@ -208,7 +230,9 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
   return {
     orders,
     shops,
+    allShops,
     products,
+    bookers,
     loading,
     refetch: fetchData,
     setOrders

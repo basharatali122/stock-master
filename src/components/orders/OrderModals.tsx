@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useState, useMemo, useRef } from 'react';
-import { X, Loader2, ShoppingCart, AlertTriangle, Calendar, Package, Box, Search, Check, Store } from 'lucide-react';
+import { X, Loader2, ShoppingCart, AlertTriangle, Calendar, Package, Box, Search, Check, Store, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -217,6 +217,11 @@ export const EditOrderModal = memo(({
 EditOrderModal.displayName = 'EditOrderModal';
 
 // New Order Modal
+interface BookerOption {
+  user_id: string;
+  full_name: string;
+}
+
 interface NewOrderModalProps {
   shops: Shop[];
   products: Product[];
@@ -227,11 +232,15 @@ interface NewOrderModalProps {
   paymentType: string;
   paidAmount: string;
   submitting: boolean;
+  isAdmin?: boolean;
+  bookers?: BookerOption[];
+  selectedBooker?: string;
   onShopChange: (value: string) => void;
   onProductChange: (value: string) => void;
   onQuantityChange: (value: string) => void;
   onPaymentTypeChange: (value: string) => void;
   onPaidAmountChange: (value: string) => void;
+  onBookerChange?: (value: string) => void;
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -249,11 +258,15 @@ export const NewOrderModal = memo(({
   paymentType,
   paidAmount,
   submitting,
+  isAdmin = false,
+  bookers = [],
+  selectedBooker = '',
   onShopChange,
   onProductChange,
   onQuantityChange,
   onPaymentTypeChange,
   onPaidAmountChange,
+  onBookerChange,
   onAddItem,
   onRemoveItem,
   onSubmit,
@@ -487,7 +500,34 @@ export const NewOrderModal = memo(({
             )}
           </div>
 
-          {/* Outstanding Credits Section */}
+          {/* Booker Selection for Admin */}
+          {isAdmin && bookers.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Assign to Order Booker *</label>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <select
+                  className="input-field pl-10"
+                  value={selectedBooker}
+                  onChange={(e) => onBookerChange?.(e.target.value)}
+                  disabled={submitting}
+                >
+                  <option value="">Select an order booker...</option>
+                  {bookers.map((booker) => (
+                    <option key={booker.user_id} value={booker.user_id}>
+                      {booker.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedBooker && (
+                <p className="text-xs text-success mt-1 flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Order will be assigned to {bookers.find(b => b.user_id === selectedBooker)?.full_name}
+                </p>
+              )}
+            </div>
+          )}
+
           {selectedShop && loadingCredits && (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
