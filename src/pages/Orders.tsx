@@ -747,6 +747,7 @@ const Orders: React.FC = () => {
             setShowPrintModal(false);
             setPrintingOrder(null);
           }}
+          onOrderUpdated={refetch}
         />
       )}
 

@@ -1,6 +1,8 @@
 import React, { memo, useState, useMemo, useEffect } from 'react';
-import { X, Printer, Percent, Edit2 } from 'lucide-react';
+import { X, Printer, Percent, Edit2, Save } from 'lucide-react';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface OrderItem {
   id: string;
@@ -30,6 +32,7 @@ interface Order {
 interface PrintOrderModalProps {
   order: Order;
   onClose: () => void;
+  onOrderUpdated?: () => void;
 }
 
 interface AdjustedItem {
@@ -38,10 +41,11 @@ interface AdjustedItem {
   adjustedTotal: number;
 }
 
-export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) => {
+export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOrderModalProps) => {
   const [customDiscount, setCustomDiscount] = useState('');
   const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('percentage');
   const [adjustedItems, setAdjustedItems] = useState<Record<string, AdjustedItem>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // Initialize adjusted items with original prices
   useEffect(() => {
@@ -91,7 +95,64 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
     };
   }, [adjustedSubtotal, discountValue, discountType]);
 
-  const handlePrint = () => {
+  // Save adjusted prices to database
+  const saveAdjustedPrices = async () => {
+    setIsSaving(true);
+    try {
+      // Check if any prices have changed
+      const priceChanges: { id: string; unit_price: number; total_price: number }[] = [];
+      
+      for (const item of order.order_items || []) {
+        const adjustment = adjustedItems[item.id];
+        if (adjustment && adjustment.adjustedPrice !== item.unit_price) {
+          priceChanges.push({
+            id: item.id,
+            unit_price: adjustment.adjustedPrice,
+            total_price: adjustment.adjustedTotal,
+          });
+        }
+      }
+
+      // Update each order item with new prices
+      for (const change of priceChanges) {
+        const { error } = await supabase
+          .from('order_items')
+          .update({
+            unit_price: change.unit_price,
+            total_price: change.total_price,
+          })
+          .eq('id', change.id);
+
+        if (error) throw error;
+      }
+
+      // Update order total if prices changed
+      if (priceChanges.length > 0) {
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({
+            total_amount: finalTotal,
+          })
+          .eq('id', order.id);
+
+        if (orderError) throw orderError;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error saving adjusted prices:', error);
+      toast.error('Failed to save adjusted prices');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    // Save adjusted prices first
+    const saved = await saveAdjustedPrices();
+    if (!saved) return;
+
     const itemsHtml = order.order_items?.map(item => {
       const adjustment = adjustedItems[item.id];
       const displayPrice = adjustment?.adjustedPrice || item.unit_price;
@@ -150,6 +211,9 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
       </div>
     `;
     printContent(content, `Order ${order.order_number}`);
+    
+    toast.success('Prices saved and invoice printed');
+    onOrderUpdated?.();
     onClose();
   };
 
@@ -281,10 +345,21 @@ export const PrintOrderModal = memo(({ order, onClose }: PrintOrderModalProps) =
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
-            <button onClick={onClose} className="btn-secondary">
+            <button onClick={onClose} className="btn-secondary" disabled={isSaving}>
               Cancel
             </button>
-            <button onClick={handlePrint} className="btn-primary">
+            <button onClick={handlePrint} className="btn-primary" disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Save className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Save & Print Invoice
+                </>
+              )}
               <Printer className="h-4 w-4 mr-2" />
               Print Invoice
             </button>
