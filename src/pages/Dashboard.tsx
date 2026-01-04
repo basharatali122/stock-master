@@ -56,6 +56,16 @@ interface BookerDailySale {
   booker_name: string;
   daily_sales: number;
   daily_orders: number;
+  daily_boxes: number;
+}
+
+interface BookerTotalSales {
+  booker_id: string;
+  booker_name: string;
+  total_sales: number;
+  total_orders: number;
+  total_boxes: number;
+  total_cartons: number;
 }
 
 // Memoized booker card component
@@ -69,12 +79,44 @@ const BookerCard = memo(({ booker }: { booker: BookerDailySale }) => (
       </div>
       <div>
         <p className="font-medium text-foreground">{booker.booker_name}</p>
-        <p className="text-sm text-muted-foreground">{booker.daily_orders} orders</p>
+        <p className="text-sm text-muted-foreground">{booker.daily_orders} orders • {booker.daily_boxes} boxes</p>
       </div>
     </div>
     <p className="text-lg font-semibold text-accent">Rs. {booker.daily_sales.toLocaleString()}</p>
   </div>
 ));
+
+// Memoized total sales booker card
+const BookerTotalCard = memo(({ booker }: { booker: BookerTotalSales }) => (
+  <div className="rounded-lg border border-border p-4 hover:border-accent/50 transition-colors">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
+        <Users className="h-5 w-5 text-primary" />
+      </div>
+      <p className="font-medium text-foreground">{booker.booker_name}</p>
+    </div>
+    <div className="grid grid-cols-2 gap-2 text-sm">
+      <div>
+        <p className="text-muted-foreground">Total Orders</p>
+        <p className="font-semibold">{booker.total_orders}</p>
+      </div>
+      <div>
+        <p className="text-muted-foreground">Total Sales</p>
+        <p className="font-semibold text-accent">Rs. {booker.total_sales.toLocaleString()}</p>
+      </div>
+      <div>
+        <p className="text-muted-foreground">Boxes Sold</p>
+        <p className="font-semibold text-primary">{booker.total_boxes.toLocaleString()}</p>
+      </div>
+      <div>
+        <p className="text-muted-foreground">Cartons</p>
+        <p className="font-semibold text-primary">≈ {booker.total_cartons.toLocaleString()}</p>
+      </div>
+    </div>
+  </div>
+));
+
+BookerTotalCard.displayName = 'BookerTotalCard';
 
 BookerCard.displayName = 'BookerCard';
 
@@ -95,6 +137,7 @@ const Dashboard: React.FC = () => {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
   const [bookerDailySales, setBookerDailySales] = useState<BookerDailySale[]>([]);
+  const [bookerTotalSales, setBookerTotalSales] = useState<BookerTotalSales[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
@@ -105,15 +148,17 @@ const Dashboard: React.FC = () => {
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
 
       // Fetch all data in parallel for maximum performance
-      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes, dailyOrdersRes, recentOrdersRes, lowStockRes] = await Promise.all([
-        supabase.from('orders').select('id, total_amount, paid_amount', { count: 'exact' }),
+      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes, dailyOrdersRes, recentOrdersRes, lowStockRes, allOrderItemsRes] = await Promise.all([
+        supabase.from('orders').select('id, total_amount, paid_amount, booker_id', { count: 'exact' }),
         supabase.from('shops').select('id', { count: 'exact' }),
-        supabase.from('products').select('id, stock_quantity', { count: 'exact' }),
+        supabase.from('products').select('id, stock_quantity, boxes_per_carton', { count: 'exact' }),
         supabase.from('routes').select('id', { count: 'exact' }).eq('is_active', true),
         supabase.from('profiles').select('id', { count: 'exact' }).eq('status', 'pending'),
         supabase.from('orders').select('id, total_amount, booker_id, created_at').gte('created_at', startOfDay).lt('created_at', endOfDay),
         supabase.from('orders').select(`id, order_number, total_amount, payment_status, created_at, shops (name), profiles:booker_id (full_name)`).order('created_at', { ascending: false }).limit(5),
         supabase.from('products').select('id, name, category, stock_quantity').lt('stock_quantity', 50).order('stock_quantity').limit(5),
+        // Fetch all order items for total boxes calculation
+        supabase.from('order_items').select('order_id, quantity'),
       ]);
 
       const totalSales = ordersRes.data?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
@@ -124,35 +169,85 @@ const Dashboard: React.FC = () => {
       const dailySales = dailyOrdersRes.data?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
       const dailyOrders = dailyOrdersRes.data?.length || 0;
 
-      // Calculate booker-wise daily sales
-      const bookerSalesMap: Record<string, { sales: number; orders: number }> = {};
-      dailyOrdersRes.data?.forEach((order) => {
-        const existing = bookerSalesMap[order.booker_id] || { sales: 0, orders: 0 };
-        bookerSalesMap[order.booker_id] = {
+      // Create a map of order_id to booker_id
+      const orderToBookerMap: Record<string, string> = {};
+      ordersRes.data?.forEach(order => {
+        orderToBookerMap[order.id] = order.booker_id;
+      });
+
+      // Calculate booker-wise total sales with boxes
+      const bookerTotalMap: Record<string, { sales: number; orders: number; boxes: number }> = {};
+      ordersRes.data?.forEach((order) => {
+        const existing = bookerTotalMap[order.booker_id] || { sales: 0, orders: 0, boxes: 0 };
+        bookerTotalMap[order.booker_id] = {
           sales: existing.sales + Number(order.total_amount || 0),
           orders: existing.orders + 1,
+          boxes: existing.boxes,
         };
       });
 
-      // Fetch booker names for daily sales
-      const bookerIds = Object.keys(bookerSalesMap);
+      // Add boxes to booker totals
+      allOrderItemsRes.data?.forEach((item: { order_id: string; quantity: number }) => {
+        const bookerId = orderToBookerMap[item.order_id];
+        if (bookerId && bookerTotalMap[bookerId]) {
+          bookerTotalMap[bookerId].boxes += item.quantity || 0;
+        }
+      });
+
+      // Calculate booker-wise daily sales with boxes
+      const dailyOrderIds = new Set(dailyOrdersRes.data?.map(o => o.id) || []);
+      const bookerDailyMap: Record<string, { sales: number; orders: number; boxes: number }> = {};
+      dailyOrdersRes.data?.forEach((order) => {
+        const existing = bookerDailyMap[order.booker_id] || { sales: 0, orders: 0, boxes: 0 };
+        bookerDailyMap[order.booker_id] = {
+          sales: existing.sales + Number(order.total_amount || 0),
+          orders: existing.orders + 1,
+          boxes: existing.boxes,
+        };
+      });
+
+      // Add boxes to daily booker totals
+      allOrderItemsRes.data?.forEach((item: { order_id: string; quantity: number }) => {
+        if (dailyOrderIds.has(item.order_id)) {
+          const bookerId = orderToBookerMap[item.order_id];
+          if (bookerId && bookerDailyMap[bookerId]) {
+            bookerDailyMap[bookerId].boxes += item.quantity || 0;
+          }
+        }
+      });
+
+      // Fetch booker names
+      const allBookerIds = [...new Set([...Object.keys(bookerTotalMap), ...Object.keys(bookerDailyMap)])];
       let bookerProfiles: { user_id: string; full_name: string }[] = [];
-      if (bookerIds.length > 0) {
+      if (allBookerIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name')
-          .in('user_id', bookerIds);
+          .in('user_id', allBookerIds);
         bookerProfiles = profiles || [];
       }
 
-      const bookerDailySalesData: BookerDailySale[] = Object.entries(bookerSalesMap).map(([bookerId, data]) => ({
+      // Create daily sales data
+      const bookerDailySalesData: BookerDailySale[] = Object.entries(bookerDailyMap).map(([bookerId, data]) => ({
         booker_id: bookerId,
         booker_name: bookerProfiles.find(p => p.user_id === bookerId)?.full_name || 'Unknown',
         daily_sales: data.sales,
         daily_orders: data.orders,
+        daily_boxes: data.boxes,
       })).sort((a, b) => b.daily_sales - a.daily_sales);
 
+      // Create total sales data
+      const bookerTotalSalesData: BookerTotalSales[] = Object.entries(bookerTotalMap).map(([bookerId, data]) => ({
+        booker_id: bookerId,
+        booker_name: bookerProfiles.find(p => p.user_id === bookerId)?.full_name || 'Unknown',
+        total_sales: data.sales,
+        total_orders: data.orders,
+        total_boxes: data.boxes,
+        total_cartons: Math.floor(data.boxes / 24), // Approximate cartons (24 boxes per carton default)
+      })).sort((a, b) => b.total_sales - a.total_sales);
+
       setBookerDailySales(bookerDailySalesData);
+      setBookerTotalSales(bookerTotalSalesData);
 
       setStats({
         totalSales,
@@ -321,6 +416,19 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {bookerDailySales.map((booker) => (
               <BookerCard key={booker.booker_id} booker={booker} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Booker Total Sales History */}
+      {isAdmin && bookerTotalSales.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="section-title">Order Booker Total Sales History</h2>
+          <p className="text-sm text-muted-foreground mb-4">Total boxes/cartons sold by each order booker</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {bookerTotalSales.map((booker) => (
+              <BookerTotalCard key={booker.booker_id} booker={booker} />
             ))}
           </div>
         </div>

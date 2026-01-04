@@ -120,7 +120,7 @@ OrderActions.displayName = 'OrderActions';
 
 const Orders: React.FC = () => {
   const { isAdmin, user } = useAuth();
-  const { orders, shops, products, loading, refetch } = useOrders(isAdmin, user?.id);
+  const { orders, shops, allShops, products, bookers, loading, refetch } = useOrders(isAdmin, user?.id);
   const {
     searchQuery,
     setSearchQuery,
@@ -131,6 +131,9 @@ const Orders: React.FC = () => {
     filteredOrders,
     stats
   } = useOrderFilters(orders);
+
+  // Selected booker for admin order creation
+  const [selectedBooker, setSelectedBooker] = useState('');
 
   // Route filter state
   const [routeFilter, setRouteFilter] = useState('All');
@@ -287,6 +290,13 @@ const Orders: React.FC = () => {
       return;
     }
 
+    // For admin, validate booker selection
+    const bookerId = isAdmin && selectedBooker ? selectedBooker : user.id;
+    if (isAdmin && !selectedBooker) {
+      toast.error('Please select an order booker to assign this order');
+      return;
+    }
+
     setSubmitting(true);
     try {
       // For order bookers, default to pending payment - admin will update later
@@ -298,7 +308,7 @@ const Orders: React.FC = () => {
         .insert({
           order_number: orderNumber,
           shop_id: selectedShop,
-          booker_id: user.id,
+          booker_id: bookerId,
           total_amount: total,
           paid_amount: 0,
           status: 'pending',
@@ -325,7 +335,9 @@ const Orders: React.FC = () => {
       if (itemsError) throw itemsError;
 
       // Update shop credit balance with full order amount (admin will collect payment)
-      const shop = shops.find(s => s.id === selectedShop);
+      // Use allShops for admin to find shop from any route
+      const shopList = isAdmin ? allShops : shops;
+      const shop = shopList.find(s => s.id === selectedShop);
       if (shop) {
         await supabase
           .from('shops')
@@ -342,7 +354,7 @@ const Orders: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedShop, orderItems, user, calculateTotal, shops, refetch]);
+  }, [selectedShop, orderItems, user, calculateTotal, shops, allShops, isAdmin, selectedBooker, refetch]);
 
   const resetForm = useCallback(() => {
     setSelectedShop('');
@@ -351,6 +363,7 @@ const Orders: React.FC = () => {
     setQuantity('1');
     setPaymentType('paid');
     setPaidAmount('');
+    setSelectedBooker('');
   }, []);
 
   const viewOrder = useCallback((order: Order) => {
@@ -696,7 +709,7 @@ const Orders: React.FC = () => {
       {/* Modals */}
       {showNewOrderModal && (
         <NewOrderModal
-          shops={shops}
+          shops={isAdmin ? allShops : shops}
           products={products}
           orderItems={orderItems}
           selectedShop={selectedShop}
@@ -705,11 +718,15 @@ const Orders: React.FC = () => {
           paymentType={paymentType}
           paidAmount={paidAmount}
           submitting={submitting}
+          isAdmin={isAdmin}
+          bookers={bookers}
+          selectedBooker={selectedBooker}
           onShopChange={setSelectedShop}
           onProductChange={setSelectedProduct}
           onQuantityChange={setQuantity}
           onPaymentTypeChange={setPaymentType}
           onPaidAmountChange={setPaidAmount}
+          onBookerChange={setSelectedBooker}
           onAddItem={addItemToOrder}
           onRemoveItem={removeItem}
           onSubmit={handleCreateOrder}
