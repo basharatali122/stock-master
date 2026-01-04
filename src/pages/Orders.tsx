@@ -2,13 +2,14 @@ import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText } from 'lucide-react';
+import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
 import { ViewOrderModal, EditOrderModal, NewOrderModal } from '@/components/orders/OrderModals';
 import { PrintOrderModal } from '@/components/orders/PrintOrderModal';
 import { RouteDeliveryPrintModal } from '@/components/orders/RouteDeliveryPrintModal';
+import { RouteBillsPrintModal } from '@/components/orders/RouteBillsPrintModal';
 import { z } from 'zod';
 
 interface OrderItem {
@@ -135,6 +136,7 @@ const Orders: React.FC = () => {
   const [routeFilter, setRouteFilter] = useState('All');
   const [routes, setRoutes] = useState<{ id: string; name: string; assigned_booker_id: string | null }[]>([]);
   const [showRoutePrintModal, setShowRoutePrintModal] = useState(false);
+  const [showRouteBillsModal, setShowRouteBillsModal] = useState(false);
 
   // Fetch routes for admin
   useEffect(() => {
@@ -578,14 +580,24 @@ const Orders: React.FC = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             {isAdmin && routeFilter !== 'All' && (
-              <button 
-                onClick={() => setShowRoutePrintModal(true)} 
-                className="btn-secondary"
-                title="Print delivery summary for selected route"
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Print Route Delivery
-              </button>
+              <>
+                <button 
+                  onClick={() => setShowRouteBillsModal(true)} 
+                  className="btn-secondary"
+                  title="Print all order bills for selected route"
+                >
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Print All Bills
+                </button>
+                <button 
+                  onClick={() => setShowRoutePrintModal(true)} 
+                  className="btn-secondary"
+                  title="Print delivery summary for selected route"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Print Route Delivery
+                </button>
+              </>
             )}
             <button onClick={printAllOrders} className="btn-secondary">
               <Printer className="mr-2 h-4 w-4" />
@@ -746,6 +758,14 @@ const Orders: React.FC = () => {
           products={products}
           bookerName={selectedRouteBooker}
           onClose={() => setShowRoutePrintModal(false)}
+        />
+      )}
+
+      {showRouteBillsModal && routeFilter !== 'All' && (
+        <RouteBillsPrintModal
+          routeName={routeFilter}
+          orders={routeFilteredOrders}
+          onClose={() => setShowRouteBillsModal(false)}
         />
       )}
     </div>
