@@ -95,10 +95,25 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
     };
   }, [adjustedSubtotal, discountValue, discountType]);
 
-  // Save adjusted prices to database
+  // Calculate total discount given (price reductions + special discount)
+  const totalDiscountGiven = useMemo(() => {
+    let priceReduction = 0;
+    for (const item of order.order_items || []) {
+      const originalTotal = item.quantity * item.unit_price * (1 - (item.discount_applied || 0) / 100);
+      const adjustedTotal = adjustedItems[item.id]?.adjustedTotal || originalTotal;
+      priceReduction += originalTotal - adjustedTotal;
+    }
+    return priceReduction + discountAmount;
+  }, [order.order_items, adjustedItems, discountAmount]);
+
+  // Save adjusted prices and discount history to database
   const saveAdjustedPrices = async () => {
     setIsSaving(true);
     try {
+      // Get current user (admin)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       // Check if any prices have changed
       const priceChanges: { id: string; unit_price: number; total_price: number }[] = [];
       
@@ -126,8 +141,9 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
         if (error) throw error;
       }
 
-      // Update order total if prices changed
-      if (priceChanges.length > 0) {
+      // Update order total if any discount was given
+      const hasDiscount = totalDiscountGiven > 0;
+      if (priceChanges.length > 0 || hasDiscount) {
         const { error: orderError } = await supabase
           .from('orders')
           .update({
@@ -136,6 +152,52 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
           .eq('id', order.id);
 
         if (orderError) throw orderError;
+      }
+
+      // Save discount history if any discount was given
+      if (totalDiscountGiven > 0) {
+        const { error: discountError } = await supabase
+          .from('discount_history')
+          .insert({
+            order_id: order.id,
+            booker_id: order.booker_id,
+            shop_id: order.shop_id,
+            original_amount: order.total_amount,
+            discounted_amount: finalTotal,
+            discount_value: totalDiscountGiven,
+            given_by: user.id,
+          });
+
+        if (discountError) throw discountError;
+
+        // Update booker financials - add to total discounts given
+        const { data: existingFinancials } = await supabase
+          .from('booker_financials')
+          .select('id, total_discounts_given')
+          .eq('booker_id', order.booker_id)
+          .maybeSingle();
+
+        if (existingFinancials) {
+          // Update existing record
+          const { error: financialError } = await supabase
+            .from('booker_financials')
+            .update({
+              total_discounts_given: (existingFinancials.total_discounts_given || 0) + totalDiscountGiven,
+            })
+            .eq('id', existingFinancials.id);
+
+          if (financialError) throw financialError;
+        } else {
+          // Create new record
+          const { error: financialError } = await supabase
+            .from('booker_financials')
+            .insert({
+              booker_id: order.booker_id,
+              total_discounts_given: totalDiscountGiven,
+            });
+
+          if (financialError) throw financialError;
+        }
       }
 
       return true;
@@ -360,8 +422,6 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
                   Save & Print Invoice
                 </>
               )}
-              <Printer className="h-4 w-4 mr-2" />
-              Print Invoice
             </button>
           </div>
         </div>

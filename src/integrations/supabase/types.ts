@@ -23,6 +23,7 @@ export type Database = {
           salary: number | null
           total_cash_collected: number | null
           total_credit_pending: number | null
+          total_discounts_given: number | null
           updated_at: string | null
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           salary?: number | null
           total_cash_collected?: number | null
           total_credit_pending?: number | null
+          total_discounts_given?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           salary?: number | null
           total_cash_collected?: number | null
           total_credit_pending?: number | null
+          total_discounts_given?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -64,6 +67,57 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      discount_history: {
+        Row: {
+          booker_id: string
+          created_at: string
+          discount_value: number
+          discounted_amount: number
+          given_by: string
+          id: string
+          order_id: string
+          original_amount: number
+          shop_id: string
+        }
+        Insert: {
+          booker_id: string
+          created_at?: string
+          discount_value: number
+          discounted_amount: number
+          given_by: string
+          id?: string
+          order_id: string
+          original_amount: number
+          shop_id: string
+        }
+        Update: {
+          booker_id?: string
+          created_at?: string
+          discount_value?: number
+          discounted_amount?: number
+          given_by?: string
+          id?: string
+          order_id?: string
+          original_amount?: number
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_history_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
