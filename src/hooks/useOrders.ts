@@ -30,6 +30,8 @@ interface Order {
 interface Shop {
   id: string;
   name: string;
+  address?: string;
+  shop_code?: string;
   route_id: string;
   credit_balance: number;
   routes?: { name: string };
@@ -81,7 +83,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
         // Fetch shops from active routes that have today as an active day (for order bookers)
         supabase
           .from('shops')
-          .select('id, name, route_id, credit_balance, routes!inner(name, is_active, active_days)')
+          .select('id, name, address, shop_code, route_id, credit_balance, routes!inner(name, is_active, active_days)')
           .eq('routes.is_active', true)
           .contains('routes.active_days', [today])
           .order('name'),
@@ -102,7 +104,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
         const [allShopsResult, bookersResult] = await Promise.all([
           supabase
             .from('shops')
-            .select('id, name, route_id, credit_balance, routes(name)')
+            .select('id, name, address, shop_code, route_id, credit_balance, routes(name)')
             .order('name'),
           supabase
             .from('profiles')
