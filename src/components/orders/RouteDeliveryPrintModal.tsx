@@ -70,6 +70,8 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
       totalQuantity: { cartons: number; boxes: number };
       shopBalance: number;
       receivedAmount: number;
+      totalDiscount: number;
+      grossAmount: number;
     }>();
 
     orders.forEach(order => {
@@ -80,13 +82,17 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         totalQuantity: { cartons: 0, boxes: 0 },
         shopBalance: 0,
         receivedAmount: 0,
+        totalDiscount: 0,
+        grossAmount: 0,
       };
 
       existing.orders.push(order);
       existing.totalAmount += order.total_amount || 0;
       existing.receivedAmount += order.paid_amount || 0;
       
-      // Calculate quantities
+      // Calculate quantities and discounts
+      let orderGross = 0;
+      let orderDiscount = 0;
       order.order_items?.forEach(item => {
         const product = products.find(p => p.id === item.product_id);
         const boxesPerCarton = product?.boxes_per_carton || 24;
@@ -94,7 +100,15 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         const boxes = item.quantity % boxesPerCarton;
         existing.totalQuantity.cartons += cartons;
         existing.totalQuantity.boxes += boxes;
+        
+        // Calculate gross (before discount) and discount
+        const itemGross = item.unit_price * item.quantity;
+        orderGross += itemGross;
+        orderDiscount += item.discount_applied || 0;
       });
+      
+      existing.grossAmount += orderGross;
+      existing.totalDiscount += orderDiscount;
 
       if (existing.shop) {
         existing.shopBalance = existing.shop.credit_balance || 0;
@@ -147,33 +161,42 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
     const totalCartons = loadForm.reduce((sum, p) => sum + p.cartons, 0);
     const totalBoxes = loadForm.reduce((sum, p) => sum + p.boxes, 0);
     const grossTotal = loadForm.reduce((sum, p) => sum + p.grossAmount, 0);
+    const totalGross = billsSummary.reduce((sum, s) => sum + s.grossAmount, 0);
+    const totalDiscount = billsSummary.reduce((sum, s) => sum + s.totalDiscount, 0);
     
-    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal };
-  }, [orders, loadForm]);
+    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount };
+  }, [orders, loadForm, billsSummary]);
 
   const printBillsSummary = () => {
     const today = new Date().toLocaleDateString();
     
-    const billsHtml = billsSummary.map((item, idx) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td>${safeText(item.orders[0]?.order_number || '')}</td>
-        <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>(${safeText(item.shop?.shop_code || '')})</small></td>
-        <td>${safeText(item.shop?.address || 'N/A')}</td>
-        <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
-        <td>${formatCurrencyForPrint(item.totalAmount)}</td>
-        <td>${formatCurrencyForPrint(item.shopBalance)}</td>
-        <td>${formatCurrencyForPrint(item.receivedAmount)}</td>
-      </tr>
-    `).join('');
+    const billsHtml = billsSummary.map((item, idx) => {
+      const hasDiscount = item.totalDiscount > 0;
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${safeText(item.orders[0]?.order_number || '')}</td>
+          <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
+          <td>${safeText(item.shop?.address || 'N/A')}</td>
+          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
+          <td>${formatCurrencyForPrint(item.grossAmount)}</td>
+          <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
+          <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
+          <td>${formatCurrencyForPrint(item.shopBalance)}</td>
+          <td>${formatCurrencyForPrint(item.receivedAmount)}</td>
+        </tr>
+      `;
+    }).join('');
 
     const content = `
       <div class="header">
-        <h1>LOAD FORM & BILLS SUMMARY</h1>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">BILLS SUMMARY</h2>
         <table style="width: 100%; margin-top: 10px; border: none;">
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
-              <strong>Distribution:</strong> ${safeText(COMPANY_INFO.name)}<br/>
               <strong>OrderBooker:</strong> ${safeText(bookerName || 'N/A')}<br/>
               <strong>DeliveryMan:</strong> ${safeText(bookerName || 'N/A')}
             </td>
@@ -186,7 +209,6 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </table>
       </div>
       
-      <h3 style="margin: 20px 0 10px 0;">BILLS SUMMARY</h3>
       <table>
         <thead>
           <tr>
@@ -194,10 +216,12 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <th>Invoice No.</th>
             <th>Shop Name</th>
             <th>Shop Address</th>
-            <th>Quantity<br/>Ctn-Box</th>
+            <th>Qty<br/>(Ctn-Box)</th>
+            <th>Gross Amt</th>
+            <th>Discount</th>
             <th>Net Invoice</th>
-            <th>Shop Balance</th>
-            <th>Received Amount</th>
+            <th>Balance</th>
+            <th>Received</th>
           </tr>
         </thead>
         <tbody>
@@ -205,7 +229,9 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="4"><strong>TOTAL</strong></td>
             <td>${totals.totalCartons} - ${totals.totalBoxes}</td>
-            <td>${formatCurrencyForPrint(totals.totalInvoice)}</td>
+            <td>${formatCurrencyForPrint(totals.totalGross)}</td>
+            <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
+            <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.totalReceived)}</td>
           </tr>
@@ -238,11 +264,13 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
 
     const content = `
       <div class="header">
-        <h1>LOAD FORM & BILLS SUMMARY</h1>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">LOAD FORM</h2>
         <table style="width: 100%; margin-top: 10px; border: none;">
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
-              <strong>Distribution:</strong> ${safeText(COMPANY_INFO.name)}<br/>
               <strong>OrderBooker:</strong> ${safeText(bookerName || 'N/A')}<br/>
               <strong>DeliveryMan:</strong> ${safeText(bookerName || 'N/A')}
             </td>
@@ -255,7 +283,6 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </table>
       </div>
       
-      <h3 style="margin: 20px 0 10px 0;">LOAD FORM</h3>
       <table>
         <thead>
           <tr>
@@ -290,18 +317,23 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
   const printBothSummaries = () => {
     const today = new Date().toLocaleDateString();
     
-    const billsHtml = billsSummary.map((item, idx) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td>${safeText(item.orders[0]?.order_number || '')}</td>
-        <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>(${safeText(item.shop?.shop_code || '')})</small></td>
-        <td>${safeText(item.shop?.address || 'N/A')}</td>
-        <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
-        <td>${formatCurrencyForPrint(item.totalAmount)}</td>
-        <td>${formatCurrencyForPrint(item.shopBalance)}</td>
-        <td>${formatCurrencyForPrint(item.receivedAmount)}</td>
-      </tr>
-    `).join('');
+    const billsHtml = billsSummary.map((item, idx) => {
+      const hasDiscount = item.totalDiscount > 0;
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${safeText(item.orders[0]?.order_number || '')}</td>
+          <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
+          <td>${safeText(item.shop?.address || 'N/A')}</td>
+          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
+          <td>${formatCurrencyForPrint(item.grossAmount)}</td>
+          <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
+          <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
+          <td>${formatCurrencyForPrint(item.shopBalance)}</td>
+          <td>${formatCurrencyForPrint(item.receivedAmount)}</td>
+        </tr>
+      `;
+    }).join('');
 
     const loadHtml = loadForm.map((item, idx) => {
       const product = item.product;
@@ -322,11 +354,13 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
 
     const content = `
       <div class="header">
-        <h1>LOAD FORM & BILLS SUMMARY</h1>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">BILLS SUMMARY</h2>
         <table style="width: 100%; margin-top: 10px; border: none;">
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
-              <strong>Distribution:</strong> ${safeText(COMPANY_INFO.name)}<br/>
               <strong>OrderBooker:</strong> ${safeText(bookerName || 'N/A')}<br/>
               <strong>DeliveryMan:</strong> ${safeText(bookerName || 'N/A')}
             </td>
@@ -339,7 +373,6 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </table>
       </div>
       
-      <h3 style="margin: 20px 0 10px 0;">BILLS SUMMARY</h3>
       <table>
         <thead>
           <tr>
@@ -347,9 +380,11 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <th>Invoice No.</th>
             <th>Shop Name</th>
             <th>Shop Address</th>
-            <th>Qty (Ctn-Box)</th>
+            <th>Qty<br/>(Ctn-Box)</th>
+            <th>Gross Amt</th>
+            <th>Discount</th>
             <th>Net Invoice</th>
-            <th>Shop Balance</th>
+            <th>Balance</th>
             <th>Received</th>
           </tr>
         </thead>
@@ -358,7 +393,9 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="4"><strong>TOTAL</strong></td>
             <td>${totals.totalCartons} - ${totals.totalBoxes}</td>
-            <td>${formatCurrencyForPrint(totals.totalInvoice)}</td>
+            <td>${formatCurrencyForPrint(totals.totalGross)}</td>
+            <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
+            <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.totalReceived)}</td>
           </tr>
@@ -368,11 +405,13 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
       <div style="page-break-before: always;"></div>
       
       <div class="header">
-        <h1>LOAD FORM & BILLS SUMMARY</h1>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">LOAD FORM</h2>
         <table style="width: 100%; margin-top: 10px; border: none;">
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
-              <strong>Distribution:</strong> ${safeText(COMPANY_INFO.name)}<br/>
               <strong>OrderBooker:</strong> ${safeText(bookerName || 'N/A')}<br/>
               <strong>DeliveryMan:</strong> ${safeText(bookerName || 'N/A')}
             </td>
@@ -385,7 +424,6 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </table>
       </div>
       
-      <h3 style="margin: 20px 0 10px 0;">LOAD FORM</h3>
       <table>
         <thead>
           <tr>
