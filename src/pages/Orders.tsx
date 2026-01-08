@@ -772,7 +772,7 @@ const Orders: React.FC = () => {
         <RouteDeliveryPrintModal
           routeName={routeFilter}
           orders={routeFilteredOrders}
-          shops={shops}
+          shops={isAdmin ? allShops : shops}
           products={products}
           bookerName={selectedRouteBooker}
           onClose={() => setShowRoutePrintModal(false)}
