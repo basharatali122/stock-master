@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt } from 'lucide-react';
+import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
@@ -10,6 +10,7 @@ import { ViewOrderModal, EditOrderModal, NewOrderModal } from '@/components/orde
 import { PrintOrderModal } from '@/components/orders/PrintOrderModal';
 import { RouteDeliveryPrintModal } from '@/components/orders/RouteDeliveryPrintModal';
 import { RouteBillsPrintModal } from '@/components/orders/RouteBillsPrintModal';
+import { BulkCashUpdateModal } from '@/components/orders/BulkCashUpdateModal';
 import { z } from 'zod';
 
 interface OrderItem {
@@ -140,6 +141,7 @@ const Orders: React.FC = () => {
   const [routes, setRoutes] = useState<{ id: string; name: string; assigned_booker_id: string | null }[]>([]);
   const [showRoutePrintModal, setShowRoutePrintModal] = useState(false);
   const [showRouteBillsModal, setShowRouteBillsModal] = useState(false);
+  const [showBulkCashModal, setShowBulkCashModal] = useState(false);
 
   // Fetch routes for admin
   useEffect(() => {
@@ -386,14 +388,27 @@ const Orders: React.FC = () => {
     setSubmitting(true);
     try {
       const paid = parseFloat(editPaidAmount) || 0;
-      const paymentStatus = paid >= editingOrder.total_amount ? 'paid' : paid > 0 ? 'partial' : 'pending';
+      const pendingAmount = editingOrder.total_amount - paid;
+      
+      // If pending amount is less than 1 PKR, consider it as fully paid
+      const isFullyPaid = paid >= editingOrder.total_amount || pendingAmount < 1;
+      const finalPaidAmount = isFullyPaid && pendingAmount < 1 && pendingAmount > 0 ? editingOrder.total_amount : paid;
+      
+      // Determine payment status
+      let paymentStatus = editPaymentStatus;
+      if (editPaymentStatus !== 'credit') {
+        paymentStatus = isFullyPaid ? 'paid' : paid > 0 ? 'partial' : 'pending';
+      }
+      
+      // Auto-set status to delivered when payment is complete
+      const orderStatus = paymentStatus === 'paid' ? 'delivered' : editStatus;
 
       const { error } = await supabase
         .from('orders')
         .update({
-          status: editStatus,
-          payment_status: editPaymentStatus === 'credit' ? 'credit' : paymentStatus,
-          paid_amount: paid,
+          status: orderStatus,
+          payment_status: paymentStatus,
+          paid_amount: finalPaidAmount,
         })
         .eq('id', editingOrder.id);
 
@@ -592,6 +607,16 @@ const Orders: React.FC = () => {
             <p className="page-subtitle">{isAdmin ? 'View and manage all orders' : 'Create and track your orders'}</p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            {isAdmin && (
+              <button 
+                onClick={() => setShowBulkCashModal(true)} 
+                className="btn-secondary"
+                title="Bulk update cash status for multiple orders"
+              >
+                <DollarSign className="mr-2 h-4 w-4" />
+                Bulk Cash Update
+              </button>
+            )}
             {isAdmin && routeFilter !== 'All' && (
               <>
                 <button 
@@ -784,6 +809,14 @@ const Orders: React.FC = () => {
           routeName={routeFilter}
           orders={routeFilteredOrders}
           onClose={() => setShowRouteBillsModal(false)}
+        />
+      )}
+
+      {showBulkCashModal && isAdmin && (
+        <BulkCashUpdateModal
+          orders={routeFilteredOrders}
+          onClose={() => setShowBulkCashModal(false)}
+          onSuccess={refetch}
         />
       )}
     </div>
