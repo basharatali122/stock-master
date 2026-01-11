@@ -1,0 +1,589 @@
+import React, { useMemo } from 'react';
+import { X, Printer, FileText, Package, Calendar } from 'lucide-react';
+import { printContent, formatCurrencyForPrint, safeText, COMPANY_INFO } from '@/lib/print';
+
+interface OrderItem {
+  id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  discount_applied: number;
+  total_price: number;
+  products?: { name: string; product_code: string | null };
+}
+
+interface Order {
+  id: string;
+  order_number: string;
+  shop_id: string;
+  booker_id: string;
+  total_amount: number;
+  paid_amount: number;
+  status: string;
+  payment_status: string;
+  created_at: string;
+  shops?: { name: string; address?: string; routes?: { name: string } };
+  booker_name?: string;
+  order_items?: OrderItem[];
+}
+
+interface Shop {
+  id: string;
+  name: string;
+  address?: string;
+  shop_code?: string;
+  credit_balance: number;
+  routes?: { name: string };
+}
+
+interface Product {
+  id: string;
+  name: string;
+  product_code: string | null;
+  price: number;
+  boxes_per_carton: number;
+}
+
+interface DailyAdminOrdersPrintModalProps {
+  orders: Order[];
+  shops: Shop[];
+  products: Product[];
+  onClose: () => void;
+}
+
+export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProps> = ({
+  orders,
+  shops,
+  products,
+  onClose,
+}) => {
+  // Filter orders created today
+  const todayOrders = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return orders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      return orderDate >= today && orderDate < tomorrow;
+    });
+  }, [orders]);
+
+  // Calculate Bills Summary (Shops list with their orders) - grouped by route
+  const billsSummary = useMemo(() => {
+    const shopOrders = new Map<string, { 
+      shop: Shop | undefined; 
+      orders: Order[]; 
+      totalAmount: number; 
+      totalQuantity: { cartons: number; boxes: number };
+      shopBalance: number;
+      receivedAmount: number;
+      totalDiscount: number;
+      grossAmount: number;
+      routeName: string;
+    }>();
+
+    todayOrders.forEach(order => {
+      const existing = shopOrders.get(order.shop_id) || {
+        shop: shops.find(s => s.id === order.shop_id),
+        orders: [],
+        totalAmount: 0,
+        totalQuantity: { cartons: 0, boxes: 0 },
+        shopBalance: 0,
+        receivedAmount: 0,
+        totalDiscount: 0,
+        grossAmount: 0,
+        routeName: order.shops?.routes?.name || 'Unknown',
+      };
+
+      existing.orders.push(order);
+      existing.totalAmount += order.total_amount || 0;
+      existing.receivedAmount += order.paid_amount || 0;
+      
+      // Calculate quantities and discounts
+      let orderGross = 0;
+      let orderDiscount = 0;
+      order.order_items?.forEach(item => {
+        const product = products.find(p => p.id === item.product_id);
+        const boxesPerCarton = product?.boxes_per_carton || 24;
+        const cartons = Math.floor(item.quantity / boxesPerCarton);
+        const boxes = item.quantity % boxesPerCarton;
+        existing.totalQuantity.cartons += cartons;
+        existing.totalQuantity.boxes += boxes;
+        
+        // Calculate gross (before discount) and discount
+        const itemGross = item.unit_price * item.quantity;
+        orderGross += itemGross;
+        orderDiscount += item.discount_applied || 0;
+      });
+      
+      existing.grossAmount += orderGross;
+      existing.totalDiscount += orderDiscount;
+
+      if (existing.shop) {
+        existing.shopBalance = existing.shop.credit_balance || 0;
+      }
+
+      shopOrders.set(order.shop_id, existing);
+    });
+
+    // Sort by route name, then shop name
+    return Array.from(shopOrders.values()).sort((a, b) => {
+      if (a.routeName !== b.routeName) return a.routeName.localeCompare(b.routeName);
+      return (a.shop?.name || '').localeCompare(b.shop?.name || '');
+    });
+  }, [todayOrders, shops, products]);
+
+  // Get unique routes from today's orders
+  const routesSummary = useMemo(() => {
+    const routeMap = new Map<string, number>();
+    todayOrders.forEach(order => {
+      const routeName = order.shops?.routes?.name || 'Unknown';
+      routeMap.set(routeName, (routeMap.get(routeName) || 0) + 1);
+    });
+    return Array.from(routeMap.entries());
+  }, [todayOrders]);
+
+  // Calculate Load Form (Products list with total quantities)
+  const loadForm = useMemo(() => {
+    const productTotals = new Map<string, {
+      product: Product | undefined;
+      totalQuantity: number;
+      cartons: number;
+      boxes: number;
+      grossAmount: number;
+    }>();
+
+    todayOrders.forEach(order => {
+      order.order_items?.forEach(item => {
+        const existing = productTotals.get(item.product_id) || {
+          product: products.find(p => p.id === item.product_id),
+          totalQuantity: 0,
+          cartons: 0,
+          boxes: 0,
+          grossAmount: 0,
+        };
+
+        existing.totalQuantity += item.quantity;
+        existing.grossAmount += item.total_price || 0;
+
+        const boxesPerCarton = existing.product?.boxes_per_carton || 24;
+        existing.cartons = Math.floor(existing.totalQuantity / boxesPerCarton);
+        existing.boxes = existing.totalQuantity % boxesPerCarton;
+
+        productTotals.set(item.product_id, existing);
+      });
+    });
+
+    return Array.from(productTotals.values());
+  }, [todayOrders, products]);
+
+  // Totals
+  const totals = useMemo(() => {
+    const totalInvoice = todayOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+    const totalReceived = todayOrders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
+    const totalCartons = loadForm.reduce((sum, p) => sum + p.cartons, 0);
+    const totalBoxes = loadForm.reduce((sum, p) => sum + p.boxes, 0);
+    const grossTotal = loadForm.reduce((sum, p) => sum + p.grossAmount, 0);
+    const totalGross = billsSummary.reduce((sum, s) => sum + s.grossAmount, 0);
+    const totalDiscount = billsSummary.reduce((sum, s) => sum + s.totalDiscount, 0);
+    
+    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount };
+  }, [todayOrders, loadForm, billsSummary]);
+
+  const today = new Date().toLocaleDateString();
+
+  const printBillsSummary = () => {
+    const billsHtml = billsSummary.map((item, idx) => {
+      const hasDiscount = item.totalDiscount > 0;
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${safeText(item.orders[0]?.order_number || '')}</td>
+          <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
+          <td>${safeText(item.shop?.address || 'N/A')}</td>
+          <td>${safeText(item.routeName)}</td>
+          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
+          <td>${formatCurrencyForPrint(item.grossAmount)}</td>
+          <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
+          <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
+          <td>${formatCurrencyForPrint(item.shopBalance)}</td>
+          <td>${formatCurrencyForPrint(item.receivedAmount)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const routesList = routesSummary.map(([name, count]) => `${name} (${count})`).join(', ');
+
+    const content = `
+      <div class="header">
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - BILLS SUMMARY</h2>
+        <table style="width: 100%; margin-top: 10px; border: none;">
+          <tr style="background: transparent;">
+            <td style="border: none; text-align: left;">
+              <strong>Type:</strong> Admin Orders<br/>
+              <strong>Routes:</strong> ${safeText(routesList)}
+            </td>
+            <td style="border: none; text-align: right;">
+              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Invoice Count:</strong> ${todayOrders.length}
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Sr#</th>
+            <th>Invoice No.</th>
+            <th>Shop Name</th>
+            <th>Shop Address</th>
+            <th>Route</th>
+            <th>Qty<br/>(Ctn-Box)</th>
+            <th>Gross Amt</th>
+            <th>Discount</th>
+            <th>Net Invoice</th>
+            <th>Balance</th>
+            <th>Received</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${billsHtml}
+          <tr style="font-weight: bold; background: #e5e5e5;">
+            <td colspan="5"><strong>TOTAL</strong></td>
+            <td>${totals.totalCartons} - ${totals.totalBoxes}</td>
+            <td>${formatCurrencyForPrint(totals.totalGross)}</td>
+            <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
+            <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
+            <td></td>
+            <td>${formatCurrencyForPrint(totals.totalReceived)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    printContent(content, `Daily Admin Orders - Bills Summary - ${today}`);
+  };
+
+  const printLoadForm = () => {
+    const loadHtml = loadForm.map((item, idx) => {
+      const product = item.product;
+      const packInfo = `${product?.boxes_per_carton || 24} x 24`;
+      const tradePrice = product?.price || 0;
+      
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${safeText(product?.name || 'N/A')} - ${safeText(product?.product_code || '')}</td>
+          <td>${packInfo}</td>
+          <td>${item.cartons} - ${item.boxes}</td>
+          <td>${formatCurrencyForPrint(tradePrice)}</td>
+          <td>${formatCurrencyForPrint(item.grossAmount)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const routesList = routesSummary.map(([name, count]) => `${name} (${count})`).join(', ');
+
+    const content = `
+      <div class="header">
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - LOAD FORM</h2>
+        <table style="width: 100%; margin-top: 10px; border: none;">
+          <tr style="background: transparent;">
+            <td style="border: none; text-align: left;">
+              <strong>Type:</strong> Admin Orders<br/>
+              <strong>Routes:</strong> ${safeText(routesList)}
+            </td>
+            <td style="border: none; text-align: right;">
+              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Invoice Count:</strong> ${todayOrders.length}
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Sr#</th>
+            <th>Product Description (ID)</th>
+            <th>Packing<br/>(Pack x Box)</th>
+            <th>Load Qty<br/>(Carton - Box)</th>
+            <th>Trade Price<br/>(Per Box)</th>
+            <th>Gross Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${loadHtml}
+          <tr style="font-weight: bold; background: #e5e5e5;">
+            <td colspan="3"><strong>TOTAL</strong></td>
+            <td>${totals.totalCartons} - ${totals.totalBoxes}</td>
+            <td></td>
+            <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div style="margin-top: 50px; display: flex; justify-content: space-between;">
+        <div><strong>Issued By</strong>: _________________</div>
+        <div><strong>Received By</strong>: _________________</div>
+      </div>
+    `;
+
+    printContent(content, `Daily Admin Orders - Load Form - ${today}`);
+  };
+
+  const printBothSummaries = () => {
+    const billsHtml = billsSummary.map((item, idx) => {
+      const hasDiscount = item.totalDiscount > 0;
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${safeText(item.orders[0]?.order_number || '')}</td>
+          <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
+          <td>${safeText(item.shop?.address || 'N/A')}</td>
+          <td>${safeText(item.routeName)}</td>
+          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
+          <td>${formatCurrencyForPrint(item.grossAmount)}</td>
+          <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
+          <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
+          <td>${formatCurrencyForPrint(item.shopBalance)}</td>
+          <td>${formatCurrencyForPrint(item.receivedAmount)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const loadHtml = loadForm.map((item, idx) => {
+      const product = item.product;
+      const packInfo = `${product?.boxes_per_carton || 24} x 24`;
+      const tradePrice = product?.price || 0;
+      
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${safeText(product?.name || 'N/A')} - ${safeText(product?.product_code || '')}</td>
+          <td>${packInfo}</td>
+          <td>${item.cartons} - ${item.boxes}</td>
+          <td>${formatCurrencyForPrint(tradePrice)}</td>
+          <td>${formatCurrencyForPrint(item.grossAmount)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const routesList = routesSummary.map(([name, count]) => `${name} (${count})`).join(', ');
+
+    const content = `
+      <div class="header">
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - BILLS SUMMARY</h2>
+        <table style="width: 100%; margin-top: 10px; border: none;">
+          <tr style="background: transparent;">
+            <td style="border: none; text-align: left;">
+              <strong>Type:</strong> Admin Orders<br/>
+              <strong>Routes:</strong> ${safeText(routesList)}
+            </td>
+            <td style="border: none; text-align: right;">
+              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Invoice Count:</strong> ${todayOrders.length}
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Sr#</th>
+            <th>Invoice No.</th>
+            <th>Shop Name</th>
+            <th>Shop Address</th>
+            <th>Route</th>
+            <th>Qty<br/>(Ctn-Box)</th>
+            <th>Gross Amt</th>
+            <th>Discount</th>
+            <th>Net Invoice</th>
+            <th>Balance</th>
+            <th>Received</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${billsHtml}
+          <tr style="font-weight: bold; background: #e5e5e5;">
+            <td colspan="5"><strong>TOTAL</strong></td>
+            <td>${totals.totalCartons} - ${totals.totalBoxes}</td>
+            <td>${formatCurrencyForPrint(totals.totalGross)}</td>
+            <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
+            <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
+            <td></td>
+            <td>${formatCurrencyForPrint(totals.totalReceived)}</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div style="page-break-before: always;"></div>
+      
+      <div class="header">
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
+        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
+        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - LOAD FORM</h2>
+        <table style="width: 100%; margin-top: 10px; border: none;">
+          <tr style="background: transparent;">
+            <td style="border: none; text-align: left;">
+              <strong>Type:</strong> Admin Orders<br/>
+              <strong>Routes:</strong> ${safeText(routesList)}
+            </td>
+            <td style="border: none; text-align: right;">
+              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Invoice Count:</strong> ${todayOrders.length}
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Sr#</th>
+            <th>Product Description (ID)</th>
+            <th>Packing<br/>(Pack x Box)</th>
+            <th>Load Qty<br/>(Carton - Box)</th>
+            <th>Trade Price<br/>(Per Box)</th>
+            <th>Gross Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${loadHtml}
+          <tr style="font-weight: bold; background: #e5e5e5;">
+            <td colspan="3"><strong>TOTAL</strong></td>
+            <td>${totals.totalCartons} - ${totals.totalBoxes}</td>
+            <td></td>
+            <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div style="margin-top: 50px; display: flex; justify-content: space-between;">
+        <div><strong>Issued By</strong>: _________________</div>
+        <div><strong>Received By</strong>: _________________</div>
+      </div>
+    `;
+
+    printContent(content, `Daily Admin Orders Summary - ${today}`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+      <div className="bg-card border border-border rounded-xl shadow-elevated p-6 w-full max-w-lg mx-4 animate-scale-in">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Daily Admin Orders Print
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Today: {today} • {todayOrders.length} orders across {routesSummary.length} routes
+            </p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {todayOrders.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>No orders created today</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Routes breakdown */}
+            <div className="p-3 rounded-lg bg-muted/30 mb-4">
+              <p className="text-sm font-medium mb-2">Routes Breakdown:</p>
+              <div className="flex flex-wrap gap-2">
+                {routesSummary.map(([name, count]) => (
+                  <span key={name} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                    {name}: {count} orders
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3 mb-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="font-medium">Bills Summary</h3>
+                  <p className="text-sm text-muted-foreground">Shop-wise invoice list with amounts and routes</p>
+                </div>
+              </div>
+              <button
+                onClick={printBillsSummary}
+                className="btn-secondary w-full mt-3"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Bills Summary
+              </button>
+            </div>
+
+            <div className="p-4 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3 mb-2">
+                <Package className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="font-medium">Load Form</h3>
+                  <p className="text-sm text-muted-foreground">Product-wise quantity list for loading</p>
+                </div>
+              </div>
+              <button
+                onClick={printLoadForm}
+                className="btn-secondary w-full mt-3"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Load Form
+              </button>
+            </div>
+
+            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+              <div className="flex items-center gap-3 mb-2">
+                <Printer className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="font-medium">Print Both</h3>
+                  <p className="text-sm text-muted-foreground">Bills summary + Load form on separate pages</p>
+                </div>
+              </div>
+              <button
+                onClick={printBothSummaries}
+                className="btn-primary w-full mt-3"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Complete Summary
+              </button>
+            </div>
+
+            {/* Totals summary */}
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
+              <div className="text-center p-2 rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground">Total Amount</p>
+                <p className="font-bold text-lg">Rs. {totals.totalInvoice.toLocaleString()}</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground">Total Qty</p>
+                <p className="font-bold text-lg">{totals.totalCartons} Ctn - {totals.totalBoxes} Box</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

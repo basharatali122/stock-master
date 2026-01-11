@@ -11,6 +11,7 @@ import { PrintOrderModal } from '@/components/orders/PrintOrderModal';
 import { RouteDeliveryPrintModal } from '@/components/orders/RouteDeliveryPrintModal';
 import { RouteBillsPrintModal } from '@/components/orders/RouteBillsPrintModal';
 import { BulkCashUpdateModal } from '@/components/orders/BulkCashUpdateModal';
+import { DailyAdminOrdersPrintModal } from '@/components/orders/DailyAdminOrdersPrintModal';
 import { z } from 'zod';
 
 interface OrderItem {
@@ -142,6 +143,7 @@ const Orders: React.FC = () => {
   const [showRoutePrintModal, setShowRoutePrintModal] = useState(false);
   const [showRouteBillsModal, setShowRouteBillsModal] = useState(false);
   const [showBulkCashModal, setShowBulkCashModal] = useState(false);
+  const [showDailyAdminPrintModal, setShowDailyAdminPrintModal] = useState(false);
 
   // Fetch routes for admin
   useEffect(() => {
@@ -608,14 +610,24 @@ const Orders: React.FC = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             {isAdmin && (
-              <button 
-                onClick={() => setShowBulkCashModal(true)} 
-                className="btn-secondary"
-                title="Bulk update cash status for multiple orders"
-              >
-                <DollarSign className="mr-2 h-4 w-4" />
-                Bulk Cash Update
-              </button>
+              <>
+                <button 
+                  onClick={() => setShowDailyAdminPrintModal(true)} 
+                  className="btn-secondary"
+                  title="Print daily load and bill summary for all admin orders"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Daily Summary
+                </button>
+                <button 
+                  onClick={() => setShowBulkCashModal(true)} 
+                  className="btn-secondary"
+                  title="Bulk update cash status for multiple orders"
+                >
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  Bulk Cash Update
+                </button>
+              </>
             )}
             {isAdmin && routeFilter !== 'All' && (
               <>
@@ -817,6 +829,15 @@ const Orders: React.FC = () => {
           orders={routeFilteredOrders}
           onClose={() => setShowBulkCashModal(false)}
           onSuccess={refetch}
+        />
+      )}
+
+      {showDailyAdminPrintModal && isAdmin && (
+        <DailyAdminOrdersPrintModal
+          orders={orders}
+          shops={allShops}
+          products={products}
+          onClose={() => setShowDailyAdminPrintModal(false)}
         />
       )}
     </div>
