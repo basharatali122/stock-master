@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign } from 'lucide-react';
+import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
@@ -90,16 +90,20 @@ FilterButton.displayName = 'FilterButton';
 // Memoized action buttons
 const OrderActions = memo(({ 
   order, 
-  isAdmin, 
+  isAdmin,
+  canDelete,
   onView, 
   onEdit, 
-  onPrint 
+  onPrint,
+  onDelete
 }: { 
   order: Order; 
   isAdmin: boolean;
+  canDelete: boolean;
   onView: () => void;
   onEdit: () => void;
   onPrint: () => void;
+  onDelete: () => void;
 }) => (
   <div className="flex gap-1">
     <button onClick={onView} className="rounded-lg p-2 hover:bg-muted" title="View">
@@ -114,6 +118,11 @@ const OrderActions = memo(({
           <Printer className="h-4 w-4 text-muted-foreground" />
         </button>
       </>
+    )}
+    {canDelete && (
+      <button onClick={onDelete} className="rounded-lg p-2 hover:bg-muted hover:bg-destructive/10" title="Delete Order">
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </button>
     )}
   </div>
 ));
@@ -165,12 +174,25 @@ const Orders: React.FC = () => {
     return filteredOrders.filter(order => order.shops?.routes?.name === routeFilter);
   }, [filteredOrders, routeFilter]);
 
-  // Route-specific stats
+  // Route-specific stats (for admin)
   const routeStats = useMemo(() => {
     const totalSales = routeFilteredOrders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
     const totalPaid = routeFilteredOrders.reduce((acc, order) => acc + (order.paid_amount || 0), 0);
     const totalCredit = totalSales - totalPaid;
     return { totalSales, totalPaid, totalCredit, totalOrders: routeFilteredOrders.length };
+  }, [routeFilteredOrders]);
+
+  // Daily sales for order bookers (only today's orders)
+  const dailySales = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayOrders = routeFilteredOrders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime();
+    });
+    const totalSales = todayOrders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
+    return { totalSales, totalOrders: todayOrders.length };
   }, [routeFilteredOrders]);
 
   // Get booker name for selected route
@@ -383,6 +405,46 @@ const Orders: React.FC = () => {
     setShowEditModal(true);
   }, []);
 
+  // Delete order handler for order bookers
+  const handleDeleteOrder = useCallback(async (order: Order) => {
+    if (!confirm(`Are you sure you want to delete order ${order.order_number}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // First delete order items
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', order.id);
+
+      if (itemsError) throw itemsError;
+
+      // Then delete the order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', order.id);
+
+      if (orderError) throw orderError;
+
+      // Update shop credit balance (reduce by order amount since order is deleted)
+      const shopList = isAdmin ? allShops : shops;
+      const shop = shopList.find(s => s.id === order.shop_id);
+      if (shop) {
+        await supabase
+          .from('shops')
+          .update({ credit_balance: Math.max(0, (shop.credit_balance || 0) - order.total_amount) })
+          .eq('id', order.shop_id);
+      }
+
+      toast.success('Order deleted successfully');
+      refetch();
+    } catch (error: any) {
+      toast.error('Failed to delete order: ' + error.message);
+    }
+  }, [isAdmin, allShops, shops, refetch]);
+
   const handleUpdateOrder = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingOrder) return;
@@ -580,17 +642,26 @@ const Orders: React.FC = () => {
     {
       key: 'actions',
       header: 'Actions',
-      render: (item: Order) => (
-        <OrderActions
-          order={item}
-          isAdmin={isAdmin}
-          onView={() => viewOrder(item)}
-          onEdit={() => openEditModal(item)}
-          onPrint={() => printOrder(item)}
-        />
-      ),
+      render: (item: Order) => {
+        // Order bookers can delete their own orders (not delivered/cancelled)
+        const canDelete = !isAdmin && 
+          item.booker_id === user?.id && 
+          !['delivered', 'cancelled'].includes(item.status?.toLowerCase());
+        
+        return (
+          <OrderActions
+            order={item}
+            isAdmin={isAdmin}
+            canDelete={canDelete}
+            onView={() => viewOrder(item)}
+            onEdit={() => openEditModal(item)}
+            onPrint={() => printOrder(item)}
+            onDelete={() => handleDeleteOrder(item)}
+          />
+        );
+      },
     },
-  ], [isAdmin, viewOrder, openEditModal, printOrder]);
+  ], [isAdmin, user?.id, viewOrder, openEditModal, printOrder, handleDeleteOrder]);
 
   if (loading) {
     return (
@@ -717,24 +788,38 @@ const Orders: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Total Orders</p>
-          <p className="mt-1 text-2xl font-bold">{routeStats.totalOrders}</p>
+      {/* Stats - Admin sees all stats, Order Bookers see only daily sales */}
+      {isAdmin ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Total Orders</p>
+            <p className="mt-1 text-2xl font-bold">{routeStats.totalOrders}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Total Sales</p>
+            <p className="mt-1 text-2xl font-bold">{formatCurrency(routeStats.totalSales)}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Cash Received</p>
+            <p className="mt-1 text-2xl font-bold text-success">{formatCurrency(routeStats.totalPaid)}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Credit/Pending</p>
+            <p className="mt-1 text-2xl font-bold text-warning">{formatCurrency(routeStats.totalCredit)}</p>
+          </div>
         </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Total Sales</p>
-          <p className="mt-1 text-2xl font-bold">{formatCurrency(routeStats.totalSales)}</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Today's Orders</p>
+            <p className="mt-1 text-2xl font-bold">{dailySales.totalOrders}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Today's Sales</p>
+            <p className="mt-1 text-2xl font-bold">{formatCurrency(dailySales.totalSales)}</p>
+          </div>
         </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Cash Received</p>
-          <p className="mt-1 text-2xl font-bold text-success">{formatCurrency(routeStats.totalPaid)}</p>
-        </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Credit/Pending</p>
-          <p className="mt-1 text-2xl font-bold text-warning">{formatCurrency(routeStats.totalCredit)}</p>
-        </div>
-      </div>
+      )}
 
       <DataTable 
         columns={columns} 
