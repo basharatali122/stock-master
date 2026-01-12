@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/ui/StatCard';
 import BrandStockReport from '@/components/reports/BrandStockReport';
-import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi, Package } from 'lucide-react';
+import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi, Package, Percent, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
 
@@ -25,6 +25,13 @@ interface RoutePerformance {
   name: string;
   sales: number;
   shops: number;
+}
+
+interface BookerDiscount {
+  booker_id: string;
+  booker_name: string;
+  total_discount: number;
+  discount_count: number;
 }
 
 interface ReportStats {
@@ -58,6 +65,7 @@ const Reports: React.FC = () => {
   const [dailySales, setDailySales] = useState<DailySales[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [routePerformance, setRoutePerformance] = useState<RoutePerformance[]>([]);
+  const [bookerDiscounts, setBookerDiscounts] = useState<BookerDiscount[]>([]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -219,6 +227,47 @@ const Reports: React.FC = () => {
         .slice(0, 4);
 
       setRoutePerformance(routePerformanceList);
+
+      // Fetch discount history for bookers (current month)
+      const monthStart = startOfMonth(new Date()).toISOString();
+      const { data: discountData, error: discountError } = await supabase
+        .from('discount_history')
+        .select('booker_id, discount_value')
+        .gte('created_at', monthStart);
+
+      if (!discountError && discountData) {
+        // Get unique booker IDs
+        const bookerIds = [...new Set(discountData.map(d => d.booker_id))];
+        
+        // Fetch booker names
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', bookerIds);
+
+        const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+
+        // Aggregate discounts by booker
+        const discountsByBooker = new Map<string, { total: number; count: number }>();
+        discountData.forEach(d => {
+          const existing = discountsByBooker.get(d.booker_id) || { total: 0, count: 0 };
+          existing.total += d.discount_value || 0;
+          existing.count += 1;
+          discountsByBooker.set(d.booker_id, existing);
+        });
+
+        const bookerDiscountList: BookerDiscount[] = Array.from(discountsByBooker.entries())
+          .map(([id, data]) => ({
+            booker_id: id,
+            booker_name: profileMap.get(id) || 'Unknown',
+            total_discount: data.total,
+            discount_count: data.count,
+          }))
+          .sort((a, b) => b.total_discount - a.total_discount);
+
+        setBookerDiscounts(bookerDiscountList);
+      }
+
       setLastUpdated(new Date());
     } catch (error: any) {
       toast.error('Failed to load report data: ' + error.message);
@@ -591,6 +640,57 @@ const Reports: React.FC = () => {
             {stats.totalReturns} returns from {stats.totalOrders} orders
           </p>
         </div>
+      </div>
+
+      {/* Monthly Discount Report by Booker */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Percent className="h-5 w-5 text-warning" />
+            <h3 className="text-lg font-semibold">Monthly Discounts by Booker</h3>
+          </div>
+          <span className="text-sm text-muted-foreground">Current Month</span>
+        </div>
+        
+        {bookerDiscounts.length > 0 ? (
+          <div className="space-y-3">
+            {bookerDiscounts.map((booker, index) => (
+              <div
+                key={booker.booker_id}
+                className="flex items-center justify-between rounded-lg bg-muted/50 p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning/20">
+                    <User className="h-5 w-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{booker.booker_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {booker.discount_count} discount{booker.discount_count !== 1 ? 's' : ''} given
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-warning">
+                    {formatCurrency(booker.total_discount)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Total discounts</p>
+                </div>
+              </div>
+            ))}
+            
+            <div className="border-t border-border pt-3 mt-4">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Total Monthly Discounts</span>
+                <span className="font-bold text-lg text-warning">
+                  {formatCurrency(bookerDiscounts.reduce((sum, b) => sum + b.total_discount, 0))}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No discounts recorded this month</p>
+        )}
       </div>
 
       {/* Brand-wise Stock Report */}

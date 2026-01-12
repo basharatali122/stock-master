@@ -182,7 +182,6 @@ export const EditOrderModal = memo(({
         <div>
           <label className="mb-1.5 block text-sm font-medium">Payment Status</label>
           <select className="input-field" value={editPaymentStatus} onChange={(e) => onPaymentStatusChange(e.target.value)} disabled={submitting}>
-            <option value="pending">Pending</option>
             <option value="partial">Partial</option>
             <option value="paid">Paid</option>
             <option value="credit">Credit</option>
