@@ -48,6 +48,7 @@ interface DailyAdminOrdersPrintModalProps {
   orders: Order[];
   shops: Shop[];
   products: Product[];
+  selectedDate?: string; // Custom date label (e.g., "Today", "Yesterday", or specific date)
   onClose: () => void;
 }
 
@@ -55,20 +56,11 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
   orders,
   shops,
   products,
+  selectedDate = 'Selected Period',
   onClose,
 }) => {
-  // Filter orders created today
-  const todayOrders = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    return orders.filter(order => {
-      const orderDate = new Date(order.created_at);
-      return orderDate >= today && orderDate < tomorrow;
-    });
-  }, [orders]);
+  // Use the pre-filtered orders directly (already filtered by date in parent)
+  const todayOrders = orders;
 
   // Calculate Bills Summary (Shops list with their orders) - grouped by route
   const billsSummary = useMemo(() => {
@@ -192,7 +184,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
     return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount };
   }, [todayOrders, loadForm, billsSummary]);
 
-  const today = new Date().toLocaleDateString();
+  const displayDate = selectedDate;
 
   const printBillsSummary = () => {
     const billsHtml = billsSummary.map((item, idx) => {
@@ -229,7 +221,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               <strong>Routes:</strong> ${safeText(routesList)}
             </td>
             <td style="border: none; text-align: right;">
-              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Date:</strong> ${safeText(displayDate)}<br/>
               <strong>Invoice Count:</strong> ${todayOrders.length}
             </td>
           </tr>
@@ -266,8 +258,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
         </tbody>
       </table>
     `;
-
-    printContent(content, `Daily Admin Orders - Bills Summary - ${today}`);
+    printContent(content, `Admin Orders - Bills Summary - ${displayDate}`);
   };
 
   const printLoadForm = () => {
@@ -303,7 +294,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               <strong>Routes:</strong> ${safeText(routesList)}
             </td>
             <td style="border: none; text-align: right;">
-              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Date:</strong> ${safeText(displayDate)}<br/>
               <strong>Invoice Count:</strong> ${todayOrders.length}
             </td>
           </tr>
@@ -337,8 +328,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
         <div><strong>Received By</strong>: _________________</div>
       </div>
     `;
-
-    printContent(content, `Daily Admin Orders - Load Form - ${today}`);
+    printContent(content, `Admin Orders - Load Form - ${displayDate}`);
   };
 
   const printBothSummaries = () => {
@@ -393,7 +383,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               <strong>Routes:</strong> ${safeText(routesList)}
             </td>
             <td style="border: none; text-align: right;">
-              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Date:</strong> ${safeText(displayDate)}<br/>
               <strong>Invoice Count:</strong> ${todayOrders.length}
             </td>
           </tr>
@@ -444,7 +434,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               <strong>Routes:</strong> ${safeText(routesList)}
             </td>
             <td style="border: none; text-align: right;">
-              <strong>Date:</strong> ${safeText(today)}<br/>
+              <strong>Date:</strong> ${safeText(displayDate)}<br/>
               <strong>Invoice Count:</strong> ${todayOrders.length}
             </td>
           </tr>
@@ -479,7 +469,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
       </div>
     `;
 
-    printContent(content, `Daily Admin Orders Summary - ${today}`);
+    printContent(content, `Admin Orders Summary - ${displayDate}`);
   };
 
   return (
@@ -489,10 +479,10 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <div>
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
-              Daily Admin Orders Print
+              Admin Orders Print
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Today: {today} • {todayOrders.length} orders across {routesSummary.length} routes
+              {displayDate} • {todayOrders.length} orders across {routesSummary.length} routes
             </p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">

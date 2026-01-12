@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign, Trash2, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
@@ -13,6 +13,7 @@ import { RouteBillsPrintModal } from '@/components/orders/RouteBillsPrintModal';
 import { BulkCashUpdateModal } from '@/components/orders/BulkCashUpdateModal';
 import { DailyAdminOrdersPrintModal } from '@/components/orders/DailyAdminOrdersPrintModal';
 import { z } from 'zod';
+import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 
 interface OrderItem {
   id: string;
@@ -40,7 +41,13 @@ interface Order {
 }
 
 const statusFilters = ['All', 'Pending', 'Confirmed', 'Delivered', 'Cancelled'];
-const paymentFilters = ['All', 'Paid', 'Credit', 'Partial', 'Pending'];
+const paymentFilters = ['All', 'Paid', 'Credit', 'Partial'];
+const datePresets = [
+  { label: 'All Time', value: 'all' },
+  { label: 'Today', value: 'today' },
+  { label: 'Yesterday', value: 'yesterday' },
+  { label: 'Custom', value: 'custom' },
+];
 
 const formatCurrency = (amount: number) => `Rs. ${amount?.toLocaleString() || 0}`;
 
@@ -148,6 +155,9 @@ const Orders: React.FC = () => {
 
   // Route filter state
   const [routeFilter, setRouteFilter] = useState('All');
+  const [bookerFilter, setBookerFilter] = useState('All');
+  const [datePreset, setDatePreset] = useState('all');
+  const [customDate, setCustomDate] = useState('');
   const [routes, setRoutes] = useState<{ id: string; name: string; assigned_booker_id: string | null }[]>([]);
   const [showRoutePrintModal, setShowRoutePrintModal] = useState(false);
   const [showRouteBillsModal, setShowRouteBillsModal] = useState(false);
@@ -168,11 +178,45 @@ const Orders: React.FC = () => {
     }
   }, [isAdmin]);
 
-  // Filter orders by route
+  // Filter orders by route, booker, and date
   const routeFilteredOrders = useMemo(() => {
-    if (routeFilter === 'All') return filteredOrders;
-    return filteredOrders.filter(order => order.shops?.routes?.name === routeFilter);
-  }, [filteredOrders, routeFilter]);
+    let filtered = filteredOrders;
+    
+    // Route filter
+    if (routeFilter !== 'All') {
+      filtered = filtered.filter(order => order.shops?.routes?.name === routeFilter);
+    }
+    
+    // Booker filter (admin only)
+    if (isAdmin && bookerFilter !== 'All') {
+      filtered = filtered.filter(order => order.booker_name === bookerFilter);
+    }
+    
+    // Date filter
+    if (datePreset !== 'all') {
+      let targetDate: Date;
+      
+      if (datePreset === 'today') {
+        targetDate = new Date();
+      } else if (datePreset === 'yesterday') {
+        targetDate = subDays(new Date(), 1);
+      } else if (datePreset === 'custom' && customDate) {
+        targetDate = new Date(customDate);
+      } else {
+        return filtered;
+      }
+      
+      const dayStart = startOfDay(targetDate);
+      const dayEnd = endOfDay(targetDate);
+      
+      filtered = filtered.filter(order => {
+        const orderDate = new Date(order.created_at);
+        return orderDate >= dayStart && orderDate <= dayEnd;
+      });
+    }
+    
+    return filtered;
+  }, [filteredOrders, routeFilter, bookerFilter, datePreset, customDate, isAdmin]);
 
   // Route-specific stats (for admin)
   const routeStats = useMemo(() => {
@@ -203,6 +247,15 @@ const Orders: React.FC = () => {
     const firstOrder = routeFilteredOrders.find(o => o.booker_name);
     return firstOrder?.booker_name;
   }, [routeFilter, routes, routeFilteredOrders]);
+
+  // Get unique booker names for filter dropdown
+  const uniqueBookers = useMemo(() => {
+    const names = new Set<string>();
+    orders.forEach(order => {
+      if (order.booker_name) names.add(order.booker_name);
+    });
+    return Array.from(names).sort();
+  }, [orders]);
 
   // Modal states
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
@@ -751,7 +804,7 @@ const Orders: React.FC = () => {
             <select
               value={routeFilter}
               onChange={(e) => setRouteFilter(e.target.value)}
-              className="input-field min-w-[180px]"
+              className="input-field min-w-[150px]"
             >
               <option value="All">All Routes</option>
               {routes.map((route) => (
@@ -760,6 +813,54 @@ const Orders: React.FC = () => {
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {/* Booker Filter for Admin */}
+        {isAdmin && uniqueBookers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={bookerFilter}
+              onChange={(e) => setBookerFilter(e.target.value)}
+              className="input-field min-w-[150px]"
+            >
+              <option value="All">All Bookers</option>
+              {uniqueBookers.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Date Filter for Admin */}
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={datePreset}
+              onChange={(e) => {
+                setDatePreset(e.target.value);
+                if (e.target.value !== 'custom') setCustomDate('');
+              }}
+              className="input-field min-w-[120px]"
+            >
+              {datePresets.map((preset) => (
+                <option key={preset.value} value={preset.value}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+            {datePreset === 'custom' && (
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="input-field"
+              />
+            )}
           </div>
         )}
       </div>
@@ -919,9 +1020,10 @@ const Orders: React.FC = () => {
 
       {showDailyAdminPrintModal && isAdmin && (
         <DailyAdminOrdersPrintModal
-          orders={orders}
+          orders={routeFilteredOrders}
           shops={allShops}
           products={products}
+          selectedDate={datePreset === 'today' ? 'Today' : datePreset === 'yesterday' ? 'Yesterday' : datePreset === 'custom' && customDate ? customDate : 'All Time'}
           onClose={() => setShowDailyAdminPrintModal(false)}
         />
       )}
