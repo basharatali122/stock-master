@@ -141,23 +141,36 @@ interface EditModalProps {
   editStatus: string;
   editPaymentStatus: string;
   editPaidAmount: string;
+  editPaymentMethod: string;
   submitting: boolean;
   onStatusChange: (value: string) => void;
   onPaymentStatusChange: (value: string) => void;
   onPaidAmountChange: (value: string) => void;
+  onPaymentMethodChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onClose: () => void;
 }
+
+const paymentMethods = [
+  { value: '', label: 'Select method...' },
+  { value: 'cash', label: 'Cash (By Hand)' },
+  { value: 'jazzcash', label: 'JazzCash' },
+  { value: 'easypaisa', label: 'Easypaisa' },
+  { value: 'bank', label: 'Bank Transfer' },
+  { value: 'other', label: 'Other' },
+];
 
 export const EditOrderModal = memo(({
   order,
   editStatus,
   editPaymentStatus,
   editPaidAmount,
+  editPaymentMethod,
   submitting,
   onStatusChange,
   onPaymentStatusChange,
   onPaidAmountChange,
+  onPaymentMethodChange,
   onSubmit,
   onClose
 }: EditModalProps) => (
@@ -199,6 +212,16 @@ export const EditOrderModal = memo(({
             max={order.total_amount}
           />
           <p className="text-xs text-muted-foreground mt-1">Total: Rs. {order.total_amount.toLocaleString()}</p>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Payment Method</label>
+          <select className="input-field" value={editPaymentMethod} onChange={(e) => onPaymentMethodChange(e.target.value)} disabled={submitting}>
+            {paymentMethods.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">How was the payment received?</p>
         </div>
 
         <div className="flex justify-end gap-3 pt-4">

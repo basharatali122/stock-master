@@ -171,6 +171,8 @@ export type Database = {
           id: string
           order_number: string
           paid_amount: number | null
+          payment_method: string | null
+          payment_received_at: string | null
           payment_status: string | null
           shop_id: string
           status: string | null
@@ -183,6 +185,8 @@ export type Database = {
           id?: string
           order_number: string
           paid_amount?: number | null
+          payment_method?: string | null
+          payment_received_at?: string | null
           payment_status?: string | null
           shop_id: string
           status?: string | null
@@ -195,6 +199,8 @@ export type Database = {
           id?: string
           order_number?: string
           paid_amount?: number | null
+          payment_method?: string | null
+          payment_received_at?: string | null
           payment_status?: string | null
           shop_id?: string
           status?: string | null
@@ -387,6 +393,7 @@ export type Database = {
           created_at: string | null
           credit_balance: number | null
           id: string
+          manual_credit: number | null
           name: string
           owner_name: string
           phone: string | null
@@ -399,6 +406,7 @@ export type Database = {
           created_at?: string | null
           credit_balance?: number | null
           id?: string
+          manual_credit?: number | null
           name: string
           owner_name: string
           phone?: string | null
@@ -411,6 +419,7 @@ export type Database = {
           created_at?: string | null
           credit_balance?: number | null
           id?: string
+          manual_credit?: number | null
           name?: string
           owner_name?: string
           phone?: string | null

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign, Trash2, Calendar, User } from 'lucide-react';
+import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign, Trash2, Calendar, User, FileEdit } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
@@ -12,6 +12,7 @@ import { RouteDeliveryPrintModal } from '@/components/orders/RouteDeliveryPrintM
 import { RouteBillsPrintModal } from '@/components/orders/RouteBillsPrintModal';
 import { BulkCashUpdateModal } from '@/components/orders/BulkCashUpdateModal';
 import { DailyAdminOrdersPrintModal } from '@/components/orders/DailyAdminOrdersPrintModal';
+import { EditBillModal } from '@/components/orders/EditBillModal';
 import { z } from 'zod';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 
@@ -101,6 +102,7 @@ const OrderActions = memo(({
   canDelete,
   onView, 
   onEdit, 
+  onEditBill,
   onPrint,
   onDelete
 }: { 
@@ -109,6 +111,7 @@ const OrderActions = memo(({
   canDelete: boolean;
   onView: () => void;
   onEdit: () => void;
+  onEditBill: () => void;
   onPrint: () => void;
   onDelete: () => void;
 }) => (
@@ -118,8 +121,11 @@ const OrderActions = memo(({
     </button>
     {isAdmin && (
       <>
-        <button onClick={onEdit} className="rounded-lg p-2 hover:bg-muted" title="Edit">
+        <button onClick={onEdit} className="rounded-lg p-2 hover:bg-muted" title="Edit Status/Payment">
           <Edit2 className="h-4 w-4 text-muted-foreground" />
+        </button>
+        <button onClick={onEditBill} className="rounded-lg p-2 hover:bg-muted" title="Edit Bill Items">
+          <FileEdit className="h-4 w-4 text-accent" />
         </button>
         <button onClick={onPrint} className="rounded-lg p-2 hover:bg-muted" title="Print">
           <Printer className="h-4 w-4 text-muted-foreground" />
@@ -267,8 +273,11 @@ const Orders: React.FC = () => {
   const [editStatus, setEditStatus] = useState('');
   const [editPaymentStatus, setEditPaymentStatus] = useState('');
   const [editPaidAmount, setEditPaidAmount] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] = useState('');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
+  const [showEditBillModal, setShowEditBillModal] = useState(false);
+  const [editBillOrder, setEditBillOrder] = useState<Order | null>(null);
 
   // New order form states
   const [selectedShop, setSelectedShop] = useState('');
@@ -455,7 +464,13 @@ const Orders: React.FC = () => {
     setEditStatus(order.status);
     setEditPaymentStatus(order.payment_status);
     setEditPaidAmount(order.paid_amount?.toString() || '0');
+    setEditPaymentMethod('');
     setShowEditModal(true);
+  }, []);
+
+  const openEditBillModal = useCallback((order: Order) => {
+    setEditBillOrder(order);
+    setShowEditBillModal(true);
   }, []);
 
   // Delete order handler for order bookers
@@ -505,6 +520,7 @@ const Orders: React.FC = () => {
     setSubmitting(true);
     try {
       const paid = parseFloat(editPaidAmount) || 0;
+      const previousPaid = editingOrder.paid_amount || 0;
       const pendingAmount = editingOrder.total_amount - paid;
       
       // If pending amount is less than 1 PKR, consider it as fully paid
@@ -514,22 +530,47 @@ const Orders: React.FC = () => {
       // Determine payment status
       let paymentStatus = editPaymentStatus;
       if (editPaymentStatus !== 'credit') {
-        paymentStatus = isFullyPaid ? 'paid' : paid > 0 ? 'partial' : 'pending';
+        paymentStatus = isFullyPaid ? 'paid' : paid > 0 ? 'partial' : 'credit';
       }
       
       // Auto-set status to delivered when payment is complete
       const orderStatus = paymentStatus === 'paid' ? 'delivered' : editStatus;
 
+      // Build update object
+      const updateData: any = {
+        status: orderStatus,
+        payment_status: paymentStatus,
+        paid_amount: finalPaidAmount,
+      };
+
+      // If payment is being received, record the date and method
+      if (finalPaidAmount > previousPaid) {
+        updateData.payment_received_at = new Date().toISOString();
+        if (editPaymentMethod) {
+          updateData.payment_method = editPaymentMethod;
+        }
+      }
+
       const { error } = await supabase
         .from('orders')
-        .update({
-          status: orderStatus,
-          payment_status: paymentStatus,
-          paid_amount: finalPaidAmount,
-        })
+        .update(updateData)
         .eq('id', editingOrder.id);
 
       if (error) throw error;
+
+      // Update shop credit balance when payment is made
+      const creditChange = finalPaidAmount - previousPaid;
+      if (creditChange !== 0) {
+        const shopList = isAdmin ? allShops : shops;
+        const shop = shopList.find(s => s.id === editingOrder.shop_id);
+        if (shop) {
+          const newCreditBalance = Math.max(0, (shop.credit_balance || 0) - creditChange);
+          await supabase
+            .from('shops')
+            .update({ credit_balance: newCreditBalance })
+            .eq('id', editingOrder.shop_id);
+        }
+      }
 
       toast.success('Order updated successfully');
       setShowEditModal(false);
@@ -708,13 +749,14 @@ const Orders: React.FC = () => {
             canDelete={canDelete}
             onView={() => viewOrder(item)}
             onEdit={() => openEditModal(item)}
+            onEditBill={() => openEditBillModal(item)}
             onPrint={() => printOrder(item)}
             onDelete={() => handleDeleteOrder(item)}
           />
         );
       },
     },
-  ], [isAdmin, user?.id, viewOrder, openEditModal, printOrder, handleDeleteOrder]);
+  ], [isAdmin, user?.id, viewOrder, openEditModal, openEditBillModal, printOrder, handleDeleteOrder]);
 
   if (loading) {
     return (
@@ -971,10 +1013,12 @@ const Orders: React.FC = () => {
           editStatus={editStatus}
           editPaymentStatus={editPaymentStatus}
           editPaidAmount={editPaidAmount}
+          editPaymentMethod={editPaymentMethod}
           submitting={submitting}
           onStatusChange={setEditStatus}
           onPaymentStatusChange={setEditPaymentStatus}
           onPaidAmountChange={setEditPaidAmount}
+          onPaymentMethodChange={setEditPaymentMethod}
           onSubmit={handleUpdateOrder}
           onClose={() => setShowEditModal(false)}
         />
@@ -1025,6 +1069,18 @@ const Orders: React.FC = () => {
           products={products}
           selectedDate={datePreset === 'today' ? 'Today' : datePreset === 'yesterday' ? 'Yesterday' : datePreset === 'custom' && customDate ? customDate : 'All Time'}
           onClose={() => setShowDailyAdminPrintModal(false)}
+        />
+      )}
+
+      {showEditBillModal && editBillOrder && isAdmin && (
+        <EditBillModal
+          order={editBillOrder}
+          products={products}
+          onClose={() => {
+            setShowEditBillModal(false);
+            setEditBillOrder(null);
+          }}
+          onSuccess={refetch}
         />
       )}
     </div>
