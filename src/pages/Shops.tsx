@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import DataTable from '@/components/ui/DataTable';
-import ShopHistory from '@/components/ShopHistory';
-import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer, DollarSign } from 'lucide-react';
-import { toast } from 'sonner';
-import { printContent, formatCurrencyForPrint } from '@/lib/print';
-import { shopSchema, validateInput } from '@/lib/validation';
-import { AddManualCreditModal } from '@/components/shops/AddManualCreditModal';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import DataTable from "@/components/ui/DataTable";
+import ShopHistory from "@/components/ShopHistory";
+import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer, DollarSign } from "lucide-react";
+import { toast } from "sonner";
+import { printContent, formatCurrencyForPrint } from "@/lib/print";
+import { shopSchema, validateInput } from "@/lib/validation";
+import { AddManualCreditModal } from "@/components/shops/AddManualCreditModal";
 
 interface Shop {
   id: string;
@@ -38,7 +38,7 @@ const Shops: React.FC = () => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
@@ -46,35 +46,35 @@ const Shops: React.FC = () => {
   const [selectedShopForHistory, setSelectedShopForHistory] = useState<Shop | null>(null);
   const [showPrintCreditsModal, setShowPrintCreditsModal] = useState(false);
   const [orderBookers, setOrderBookers] = useState<OrderBooker[]>([]);
-  const [selectedBookerId, setSelectedBookerId] = useState<string>('all');
+  const [selectedBookerId, setSelectedBookerId] = useState<string>("all");
   const [loadingBookers, setLoadingBookers] = useState(false);
-  const [creditDateFilter, setCreditDateFilter] = useState('');
+  const [creditDateFilter, setCreditDateFilter] = useState("");
   const [showAddCreditModal, setShowAddCreditModal] = useState(false);
   const [selectedShopForCredit, setSelectedShopForCredit] = useState<Shop | null>(null);
 
   const [formData, setFormData] = useState({
-    name: '',
-    owner_name: '',
-    phone: '',
-    address: '',
-    route_id: '',
-    shop_code: '',
+    name: "",
+    owner_name: "",
+    phone: "",
+    address: "",
+    route_id: "",
+    shop_code: "",
   });
 
   const fetchData = useCallback(async () => {
     try {
       // For order bookers, first get their assigned route IDs
       let assignedRouteIds: string[] = [];
-      
+
       if (!isAdmin && user) {
         const { data: userRoutes, error: userRoutesError } = await supabase
-          .from('routes')
-          .select('id')
-          .eq('assigned_booker_id', user.id)
-          .eq('is_active', true);
-        
+          .from("routes")
+          .select("id")
+          .eq("assigned_booker_id", user.id)
+          .eq("is_active", true);
+
         if (userRoutesError) throw userRoutesError;
-        assignedRouteIds = userRoutes?.map(r => r.id) || [];
+        assignedRouteIds = userRoutes?.map((r) => r.id) || [];
       }
 
       // For order bookers with no routes, exit early
@@ -87,27 +87,20 @@ const Shops: React.FC = () => {
 
       // Build queries
       let shopsQuery = supabase
-        .from('shops')
-        .select('*, routes(name, city_id)')
-        .order('created_at', { ascending: false })
+        .from("shops")
+        .select("*, routes(name, city_id)")
+        .order("created_at", { ascending: false })
         .limit(1000);
-      
-      let routesQuery = supabase
-        .from('routes')
-        .select('id, name, cities(name)')
-        .eq('is_active', true)
-        .order('name');
-      
+
+      let routesQuery = supabase.from("routes").select("id, name, cities(name)").eq("is_active", true).order("name");
+
       if (!isAdmin && assignedRouteIds.length > 0) {
-        shopsQuery = shopsQuery.in('route_id', assignedRouteIds);
-        routesQuery = routesQuery.in('id', assignedRouteIds);
+        shopsQuery = shopsQuery.in("route_id", assignedRouteIds);
+        routesQuery = routesQuery.in("id", assignedRouteIds);
       }
 
       // Batch both queries in parallel
-      const [shopsResult, routesResult] = await Promise.all([
-        shopsQuery,
-        routesQuery
-      ]);
+      const [shopsResult, routesResult] = await Promise.all([shopsQuery, routesQuery]);
 
       if (shopsResult.error) throw shopsResult.error;
       if (routesResult.error) throw routesResult.error;
@@ -115,7 +108,7 @@ const Shops: React.FC = () => {
       setShops(shopsResult.data || []);
       setRoutes(routesResult.data || []);
     } catch (error: any) {
-      toast.error('Failed to load shops: ' + error.message);
+      toast.error("Failed to load shops: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -127,27 +120,27 @@ const Shops: React.FC = () => {
 
   const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate input
     const validationResult = validateInput(shopSchema, {
       name: formData.name,
       owner_name: formData.owner_name,
-      phone: formData.phone || '',
-      address: formData.address || '',
+      phone: formData.phone || "",
+      address: formData.address || "",
       route_id: formData.route_id,
       shop_code: formData.shop_code,
     });
-    
+
     if (!validationResult.success) {
       toast.error(validationResult.error);
       return;
     }
-    
+
     const validatedData = validationResult.data;
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('shops').insert({
+      const { error } = await supabase.from("shops").insert({
         name: validatedData.name,
         owner_name: validatedData.owner_name,
         phone: validatedData.phone || null,
@@ -158,12 +151,12 @@ const Shops: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success('Shop added successfully');
+      toast.success("Shop added successfully");
       setShowAddModal(false);
       resetForm();
       fetchData();
     } catch (error: any) {
-      toast.error('Failed to add shop: ' + error.message);
+      toast.error("Failed to add shop: " + error.message);
     } finally {
       setSubmitting(false);
     }
@@ -172,7 +165,7 @@ const Shops: React.FC = () => {
   const handleEditShop = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingShop) {
-      toast.error('No shop selected for editing');
+      toast.error("No shop selected for editing");
       return;
     }
 
@@ -180,23 +173,23 @@ const Shops: React.FC = () => {
     const validationResult = validateInput(shopSchema, {
       name: formData.name,
       owner_name: formData.owner_name,
-      phone: formData.phone || '',
-      address: formData.address || '',
+      phone: formData.phone || "",
+      address: formData.address || "",
       route_id: formData.route_id,
       shop_code: formData.shop_code,
     });
-    
+
     if (!validationResult.success) {
       toast.error(validationResult.error);
       return;
     }
-    
+
     const validatedData = validationResult.data;
 
     setSubmitting(true);
     try {
       const { error } = await supabase
-        .from('shops')
+        .from("shops")
         .update({
           name: validatedData.name,
           owner_name: validatedData.owner_name,
@@ -205,17 +198,17 @@ const Shops: React.FC = () => {
           route_id: validatedData.route_id,
           shop_code: validatedData.shop_code,
         })
-        .eq('id', editingShop.id);
+        .eq("id", editingShop.id);
 
       if (error) throw error;
 
-      toast.success('Shop updated successfully');
+      toast.success("Shop updated successfully");
       setShowEditModal(false);
       setEditingShop(null);
       resetForm();
       fetchData();
     } catch (error: any) {
-      toast.error('Failed to update shop: ' + error.message);
+      toast.error("Failed to update shop: " + error.message);
     } finally {
       setSubmitting(false);
     }
@@ -225,17 +218,14 @@ const Shops: React.FC = () => {
     if (!confirm(`Are you sure you want to delete "${shop.name}"?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('shops')
-        .delete()
-        .eq('id', shop.id);
+      const { error } = await supabase.from("shops").delete().eq("id", shop.id);
 
       if (error) throw error;
 
-      toast.success('Shop deleted successfully');
+      toast.success("Shop deleted successfully");
       fetchData();
     } catch (error: any) {
-      toast.error('Failed to delete shop: ' + error.message);
+      toast.error("Failed to delete shop: " + error.message);
     }
   };
 
@@ -244,22 +234,22 @@ const Shops: React.FC = () => {
     setFormData({
       name: shop.name,
       owner_name: shop.owner_name,
-      phone: shop.phone || '',
-      address: shop.address || '',
+      phone: shop.phone || "",
+      address: shop.address || "",
       route_id: shop.route_id,
-      shop_code: shop.shop_code || '',
+      shop_code: shop.shop_code || "",
     });
     setShowEditModal(true);
   };
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      owner_name: '',
-      phone: '',
-      address: '',
-      route_id: '',
-      shop_code: '',
+      name: "",
+      owner_name: "",
+      phone: "",
+      address: "",
+      route_id: "",
+      shop_code: "",
     });
   };
 
@@ -270,7 +260,7 @@ const Shops: React.FC = () => {
         shop.name.toLowerCase().includes(searchLower) ||
         shop.owner_name.toLowerCase().includes(searchLower) ||
         shop.routes?.name?.toLowerCase().includes(searchLower) ||
-        (shop.shop_code && shop.shop_code.toLowerCase().includes(searchLower))
+        (shop.shop_code && shop.shop_code.toLowerCase().includes(searchLower)),
     );
   }, [shops, searchQuery]);
 
@@ -280,14 +270,14 @@ const Shops: React.FC = () => {
     let total = 0;
     let withCredit = 0;
     let zeroCredit = 0;
-    
-    shops.forEach(shop => {
+
+    shops.forEach((shop) => {
       const balance = shop.credit_balance || 0;
       total += balance;
       if (balance > 0) withCredit++;
       else zeroCredit++;
     });
-    
+
     return { totalCredit: total, shopsWithCredit: withCredit, shopsWithZeroCredit: zeroCredit };
   }, [shops]);
 
@@ -295,25 +285,25 @@ const Shops: React.FC = () => {
     setLoadingBookers(true);
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, user_id')
-        .eq('status', 'approved')
-        .order('full_name');
-      
+        .from("profiles")
+        .select("id, full_name, user_id")
+        .eq("status", "approved")
+        .order("full_name");
+
       if (error) throw error;
-      
+
       // Map to use user_id as the id since orders use booker_id which is user_id
-      setOrderBookers((data || []).map(p => ({ id: p.user_id, full_name: p.full_name })));
+      setOrderBookers((data || []).map((p) => ({ id: p.user_id, full_name: p.full_name })));
     } catch (error: any) {
-      toast.error('Failed to load order bookers: ' + error.message);
+      toast.error("Failed to load order bookers: " + error.message);
     } finally {
       setLoadingBookers(false);
     }
   };
 
   const openPrintCreditsModal = () => {
-    setSelectedBookerId('all');
-    setCreditDateFilter('');
+    setSelectedBookerId("all");
+    setCreditDateFilter("");
     fetchOrderBookers();
     setShowPrintCreditsModal(true);
   };
@@ -327,8 +317,9 @@ const Shops: React.FC = () => {
     try {
       // Build query for orders with pending payment
       let query = supabase
-        .from('orders')
-        .select(`
+        .from("orders")
+        .select(
+          `
           id,
           order_number,
           created_at,
@@ -344,13 +335,14 @@ const Shops: React.FC = () => {
             phone,
             routes!inner(name)
           )
-        `)
-        .in('payment_status', ['credit', 'partial'])
-        .order('created_at', { ascending: false });
+        `,
+        )
+        .in("payment_status", ["credit", "partial"])
+        .order("created_at", { ascending: false });
 
       // Filter by booker if selected
-      if (selectedBookerId !== 'all') {
-        query = query.eq('booker_id', selectedBookerId);
+      if (selectedBookerId !== "all") {
+        query = query.eq("booker_id", selectedBookerId);
       }
 
       // Filter by date if selected
@@ -359,7 +351,7 @@ const Shops: React.FC = () => {
         startDate.setHours(0, 0, 0, 0);
         const endDate = new Date(creditDateFilter);
         endDate.setHours(23, 59, 59, 999);
-        query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+        query = query.gte("created_at", startDate.toISOString()).lte("created_at", endDate.toISOString());
       }
 
       const { data: ordersWithDues, error } = await query;
@@ -367,36 +359,36 @@ const Shops: React.FC = () => {
       if (error) throw error;
 
       if (!ordersWithDues || ordersWithDues.length === 0) {
-        toast.info('No pending credits found');
+        toast.info("No pending credits found");
         return;
       }
 
       // Get booker name for the report title
-      const selectedBooker = orderBookers.find(b => b.id === selectedBookerId);
-      const bookerName = selectedBookerId === 'all' ? 'All Order Bookers' : selectedBooker?.full_name || 'Unknown';
+      const selectedBooker = orderBookers.find((b) => b.id === selectedBookerId);
+      const bookerName = selectedBookerId === "all" ? "All Order Bookers" : selectedBooker?.full_name || "Unknown";
 
       const now = new Date();
-      let tableRows = '';
+      let tableRows = "";
       let totalPending = 0;
 
       ordersWithDues.forEach((order: any, index: number) => {
         const remainingBalance = (order.total_amount || 0) - (order.paid_amount || 0);
         totalPending += remainingBalance;
-        
+
         const orderDate = new Date(order.created_at);
         const pendingDays = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         tableRows += `
           <tr>
             <td style="text-align: center;">${index + 1}</td>
             <td>${orderDate.toLocaleDateString()}</td>
             <td>${order.order_number}</td>
-            <td>${order.shops?.name || 'N/A'}</td>
-            <td>${order.shops?.routes?.name || 'N/A'}</td>
+            <td>${order.shops?.name || "N/A"}</td>
+            <td>${order.shops?.routes?.name || "N/A"}</td>
             <td style="text-align: right;">${formatCurrencyForPrint(order.total_amount)}</td>
             <td style="text-align: right; font-weight: bold; color: #dc2626;">${formatCurrencyForPrint(remainingBalance)}</td>
             <td style="text-align: center;">${pendingDays} days</td>
-            <td>${order.shops?.phone || 'N/A'}</td>
+            <td>${order.shops?.phone || "N/A"}</td>
           </tr>
         `;
       });
@@ -456,98 +448,99 @@ const Shops: React.FC = () => {
       printContent(content, `Pending Credits Report - ${bookerName}`);
       setShowPrintCreditsModal(false);
     } catch (error: any) {
-      toast.error('Failed to generate report: ' + error.message);
+      toast.error("Failed to generate report: " + error.message);
     }
   };
 
-  const columns = useMemo(() => [
-    {
-      key: 'shop_code',
-      header: 'Code',
-      render: (item: Shop) => (
-        <span className="rounded bg-primary/10 px-2 py-1 text-xs font-mono font-medium text-primary">
-          {item.shop_code || 'N/A'}
-        </span>
-      ),
-    },
-    {
-      key: 'name',
-      header: 'Shop',
-      render: (item: Shop) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
-            <Store className="h-5 w-5 text-success" />
+  const columns = useMemo(
+    () => [
+      {
+        key: "shop_code",
+        header: "Code",
+        render: (item: Shop) => (
+          <span className="rounded bg-primary/10 px-2 py-1 text-xs font-mono font-medium text-primary">
+            {item.shop_code || "N/A"}
+          </span>
+        ),
+      },
+      {
+        key: "name",
+        header: "Shop",
+        render: (item: Shop) => (
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+              <Store className="h-5 w-5 text-success" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">{item.name}</p>
+              <p className="text-xs text-muted-foreground">{item.owner_name}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-medium text-foreground">{item.name}</p>
-            <p className="text-xs text-muted-foreground">{item.owner_name}</p>
+        ),
+      },
+      {
+        key: "contact",
+        header: "Contact",
+        render: (item: Shop) => (
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">{item.phone || "N/A"}</span>
           </div>
-        </div>
-      ),
-    },
-    {
-      key: 'contact',
-      header: 'Contact',
-      render: (item: Shop) => (
-        <div className="flex items-center gap-2">
-          <Phone className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{item.phone || 'N/A'}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'route',
-      header: 'Route',
-      render: (item: Shop) => (
-        <span className="rounded bg-secondary px-2 py-1 text-xs font-medium">
-          {item.routes?.name || 'N/A'}
-        </span>
-      ),
-    },
-    {
-      key: 'credit_balance',
-      header: 'Credit Balance',
-      render: (item: Shop) => (
-        <span className={(item.credit_balance || 0) > 0 ? 'text-warning font-medium' : ''}>
-          {formatCurrency(item.credit_balance || 0)}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      render: (item: Shop) => (
-        <div className="flex gap-2">
-          {isAdmin && (
-            <button 
-              onClick={() => setSelectedShopForHistory(item)} 
-              className="rounded-lg p-2 hover:bg-primary/10"
-              title="View History"
-            >
-              <Eye className="h-4 w-4 text-primary" />
+        ),
+      },
+      {
+        key: "route",
+        header: "Route",
+        render: (item: Shop) => (
+          <span className="rounded bg-secondary px-2 py-1 text-xs font-medium">{item.routes?.name || "N/A"}</span>
+        ),
+      },
+      {
+        key: "credit_balance",
+        header: "Credit Balance",
+        render: (item: Shop) => (
+          <span className={(item.credit_balance || 0) > 0 ? "text-warning font-medium" : ""}>
+            {formatCurrency(item.credit_balance || 0)}
+          </span>
+        ),
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (item: Shop) => (
+          <div className="flex gap-2">
+            {isAdmin && (
+              <button
+                onClick={() => setSelectedShopForHistory(item)}
+                className="rounded-lg p-2 hover:bg-primary/10"
+                title="View History"
+              >
+                <Eye className="h-4 w-4 text-primary" />
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => openAddCreditModal(item)}
+                className="rounded-lg p-2 hover:bg-warning/10"
+                title="Add Manual Credit"
+              >
+                <DollarSign className="h-4 w-4 text-warning" />
+              </button>
+            )}
+            <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted">
+              <Edit className="h-4 w-4 text-muted-foreground" />
             </button>
-          )}
-          {isAdmin && (
-            <button 
-              onClick={() => openAddCreditModal(item)} 
-              className="rounded-lg p-2 hover:bg-warning/10"
-              title="Add Manual Credit"
-            >
-              <DollarSign className="h-4 w-4 text-warning" />
-            </button>
-          )}
-          <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted">
-            <Edit className="h-4 w-4 text-muted-foreground" />
-          </button>
-          {isAdmin && (
-            <button onClick={() => handleDeleteShop(item)} className="rounded-lg p-2 hover:bg-destructive/10">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </button>
-          )}
-        </div>
-      ),
-    },
-  ], [isAdmin, formatCurrency]);
+            {isAdmin && (
+              <button onClick={() => handleDeleteShop(item)} className="rounded-lg p-2 hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </button>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [isAdmin, formatCurrency],
+  );
 
   if (loading) {
     return (
@@ -603,15 +596,11 @@ const Shops: React.FC = () => {
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Shops with Credit</p>
-          <p className="mt-1 text-2xl font-bold text-destructive">
-            {shopsWithCredit}
-          </p>
+          <p className="mt-1 text-2xl font-bold text-destructive">{shopsWithCredit}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Clear Balance</p>
-          <p className="mt-1 text-2xl font-bold text-success">
-            {shopsWithZeroCredit}
-          </p>
+          <p className="mt-1 text-2xl font-bold text-success">{shopsWithZeroCredit}</p>
         </div>
       </div>
 
@@ -704,7 +693,7 @@ const Shops: React.FC = () => {
                   <option value="">Select route</option>
                   {routes.map((route) => (
                     <option key={route.id} value={route.id}>
-                      {route.name} {route.cities ? `(${route.cities.name})` : ''}
+                      {route.name} {route.cities ? `(${route.cities.name})` : ""}
                     </option>
                   ))}
                 </select>
@@ -713,7 +702,10 @@ const Shops: React.FC = () => {
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => { setShowAddModal(false); resetForm(); }}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetForm();
+                  }}
                   className="btn-secondary"
                   disabled={submitting}
                 >
@@ -805,7 +797,7 @@ const Shops: React.FC = () => {
                   <option value="">Select route</option>
                   {routes.map((route) => (
                     <option key={route.id} value={route.id}>
-                      {route.name} {route.cities ? `(${route.cities.name})` : ''}
+                      {route.name} {route.cities ? `(${route.cities.name})` : ""}
                     </option>
                   ))}
                 </select>
@@ -814,7 +806,11 @@ const Shops: React.FC = () => {
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => { setShowEditModal(false); setEditingShop(null); resetForm(); }}
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingShop(null);
+                    resetForm();
+                  }}
                   className="btn-secondary"
                   disabled={submitting}
                 >
@@ -839,10 +835,7 @@ const Shops: React.FC = () => {
                 <h2 className="text-xl font-semibold">Print Pending Credits</h2>
                 <p className="text-sm text-muted-foreground">Select an order booker to filter</p>
               </div>
-              <button
-                onClick={() => setShowPrintCreditsModal(false)}
-                className="rounded-lg p-2 hover:bg-muted"
-              >
+              <button onClick={() => setShowPrintCreditsModal(false)} className="rounded-lg p-2 hover:bg-muted">
                 ✕
               </button>
             </div>
@@ -872,7 +865,6 @@ const Shops: React.FC = () => {
               </div>
 
               <div>
-              <div>
                 <label className="block text-sm font-medium mb-2">Filter by Date (Optional)</label>
                 <input
                   type="date"
@@ -883,17 +875,10 @@ const Shops: React.FC = () => {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowPrintCreditsModal(false)}
-                  className="btn-secondary flex-1"
-                >
+                <button onClick={() => setShowPrintCreditsModal(false)} className="btn-secondary flex-1">
                   Cancel
                 </button>
-                <button
-                  onClick={handlePrintPendingCredits}
-                  className="btn-primary flex-1"
-                  disabled={loadingBookers}
-                >
+                <button onClick={handlePrintPendingCredits} className="btn-primary flex-1" disabled={loadingBookers}>
                   <Printer className="mr-2 h-4 w-4" />
                   Print Report
                 </button>
