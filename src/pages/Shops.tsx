@@ -3,10 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import ShopHistory from '@/components/ShopHistory';
-import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint } from '@/lib/print';
 import { shopSchema, validateInput } from '@/lib/validation';
+import { AddManualCreditModal } from '@/components/shops/AddManualCreditModal';
 
 interface Shop {
   id: string;
@@ -47,6 +48,9 @@ const Shops: React.FC = () => {
   const [orderBookers, setOrderBookers] = useState<OrderBooker[]>([]);
   const [selectedBookerId, setSelectedBookerId] = useState<string>('all');
   const [loadingBookers, setLoadingBookers] = useState(false);
+  const [creditDateFilter, setCreditDateFilter] = useState('');
+  const [showAddCreditModal, setShowAddCreditModal] = useState(false);
+  const [selectedShopForCredit, setSelectedShopForCredit] = useState<Shop | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -309,8 +313,14 @@ const Shops: React.FC = () => {
 
   const openPrintCreditsModal = () => {
     setSelectedBookerId('all');
+    setCreditDateFilter('');
     fetchOrderBookers();
     setShowPrintCreditsModal(true);
+  };
+
+  const openAddCreditModal = (shop: Shop) => {
+    setSelectedShopForCredit(shop);
+    setShowAddCreditModal(true);
   };
 
   const handlePrintPendingCredits = async () => {
@@ -326,6 +336,8 @@ const Shops: React.FC = () => {
           paid_amount,
           payment_status,
           booker_id,
+          payment_received_at,
+          payment_method,
           shops!inner(
             id,
             name,
@@ -333,12 +345,21 @@ const Shops: React.FC = () => {
             routes!inner(name)
           )
         `)
-        .in('payment_status', ['credit', 'partial', 'pending'])
+        .in('payment_status', ['credit', 'partial'])
         .order('created_at', { ascending: false });
 
       // Filter by booker if selected
       if (selectedBookerId !== 'all') {
         query = query.eq('booker_id', selectedBookerId);
+      }
+
+      // Filter by date if selected
+      if (creditDateFilter) {
+        const startDate = new Date(creditDateFilter);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(creditDateFilter);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
       const { data: ordersWithDues, error } = await query;
@@ -504,6 +525,15 @@ const Shops: React.FC = () => {
               title="View History"
             >
               <Eye className="h-4 w-4 text-primary" />
+            </button>
+          )}
+          {isAdmin && (
+            <button 
+              onClick={() => openAddCreditModal(item)} 
+              className="rounded-lg p-2 hover:bg-warning/10"
+              title="Add Manual Credit"
+            >
+              <DollarSign className="h-4 w-4 text-warning" />
             </button>
           )}
           <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted">
@@ -841,6 +871,17 @@ const Shops: React.FC = () => {
                 )}
               </div>
 
+              <div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Filter by Date (Optional)</label>
+                <input
+                  type="date"
+                  value={creditDateFilter}
+                  onChange={(e) => setCreditDateFilter(e.target.value)}
+                  className="input-field w-full"
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowPrintCreditsModal(false)}
@@ -868,6 +909,18 @@ const Shops: React.FC = () => {
           shopId={selectedShopForHistory.id}
           shopName={selectedShopForHistory.name}
           onClose={() => setSelectedShopForHistory(null)}
+        />
+      )}
+
+      {/* Add Manual Credit Modal */}
+      {showAddCreditModal && selectedShopForCredit && (
+        <AddManualCreditModal
+          shop={selectedShopForCredit}
+          onClose={() => {
+            setShowAddCreditModal(false);
+            setSelectedShopForCredit(null);
+          }}
+          onSuccess={fetchData}
         />
       )}
     </div>
