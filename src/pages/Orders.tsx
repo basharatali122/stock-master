@@ -41,7 +41,6 @@ interface Order {
   order_items?: OrderItem[];
 }
 
-const statusFilters = ['All', 'Pending', 'Confirmed', 'Delivered', 'Cancelled'];
 const paymentFilters = ['All', 'Paid', 'Credit', 'Partial'];
 const datePresets = [
   { label: 'All Time', value: 'all' },
@@ -52,20 +51,10 @@ const datePresets = [
 
 const formatCurrency = (amount: number) => `Rs. ${amount?.toLocaleString() || 0}`;
 
-const getStatusBadge = (status: string) => {
-  switch (status?.toLowerCase()) {
-    case 'delivered': return 'badge-success';
-    case 'confirmed': return 'badge-info';
-    case 'pending': return 'badge-pending';
-    case 'cancelled': return 'badge-destructive';
-    default: return 'badge-info';
-  }
-};
-
 const getPaymentBadge = (status: string) => {
   switch (status?.toLowerCase()) {
     case 'paid': return 'badge-success';
-    case 'credit': case 'pending': return 'badge-pending';
+    case 'credit': return 'badge-pending';
     case 'partial': return 'badge-info';
     default: return 'badge-info';
   }
@@ -148,8 +137,6 @@ const Orders: React.FC = () => {
   const {
     searchQuery,
     setSearchQuery,
-    statusFilter,
-    setStatusFilter,
     paymentFilter,
     setPaymentFilter,
     filteredOrders,
@@ -399,8 +386,7 @@ const Orders: React.FC = () => {
           booker_id: bookerId,
           total_amount: total,
           paid_amount: 0,
-          status: 'pending',
-          payment_status: 'pending',
+          payment_status: 'credit',
         })
         .select()
         .single();
@@ -533,12 +519,8 @@ const Orders: React.FC = () => {
         paymentStatus = isFullyPaid ? 'paid' : paid > 0 ? 'partial' : 'credit';
       }
       
-      // Auto-set status to delivered when payment is complete
-      const orderStatus = paymentStatus === 'paid' ? 'delivered' : editStatus;
-
       // Build update object
       const updateData: any = {
-        status: orderStatus,
         payment_status: paymentStatus,
         paid_amount: finalPaidAmount,
       };
@@ -714,15 +696,6 @@ const Orders: React.FC = () => {
       key: 'total_amount',
       header: 'Amount',
       render: (item: Order) => <span className="font-medium">{formatCurrency(item.total_amount)}</span>,
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (item: Order) => (
-        <span className={getStatusBadge(item.status)}>
-          {item.status?.charAt(0).toUpperCase() + item.status?.slice(1)}
-        </span>
-      ),
     },
     {
       key: 'payment_status',
@@ -907,17 +880,6 @@ const Orders: React.FC = () => {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <span className="text-sm text-muted-foreground self-center">Status:</span>
-        {statusFilters.map((status) => (
-          <FilterButton
-            key={status}
-            label={status}
-            isActive={statusFilter === status}
-            onClick={() => setStatusFilter(status)}
-          />
-        ))}
-      </div>
 
       <div className="flex flex-wrap gap-2">
         <span className="text-sm text-muted-foreground self-center">Payment:</span>
