@@ -243,7 +243,6 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
 
 export function useOrderFilters(orders: Order[]) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
 
   const filteredOrders = useMemo(() => {
@@ -252,13 +251,11 @@ export function useOrderFilters(orders: Order[]) {
       const matchesSearch = !searchQuery ||
         order.order_number.toLowerCase().includes(searchLower) ||
         order.shops?.name?.toLowerCase().includes(searchLower);
-      const matchesStatus =
-        statusFilter === 'All' || order.status?.toLowerCase() === statusFilter.toLowerCase();
       const matchesPayment =
         paymentFilter === 'All' || order.payment_status?.toLowerCase() === paymentFilter.toLowerCase();
-      return matchesSearch && matchesStatus && matchesPayment;
+      return matchesSearch && matchesPayment;
     });
-  }, [orders, searchQuery, statusFilter, paymentFilter]);
+  }, [orders, searchQuery, paymentFilter]);
 
   const stats = useMemo(() => {
     const totalSales = orders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
@@ -270,8 +267,6 @@ export function useOrderFilters(orders: Order[]) {
   return {
     searchQuery,
     setSearchQuery,
-    statusFilter,
-    setStatusFilter,
     paymentFilter,
     setPaymentFilter,
     filteredOrders,
