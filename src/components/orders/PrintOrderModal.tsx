@@ -215,11 +215,15 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
     const saved = await saveAdjustedPrices();
     if (!saved) return;
 
+    // Use the ADJUSTED prices for printing (these are now saved to DB)
     const itemsHtml = order.order_items?.map(item => {
       const adjustment = adjustedItems[item.id];
-      const displayPrice = adjustment?.adjustedPrice || item.unit_price;
-      const displayTotal = adjustment?.adjustedTotal || item.total_price;
+      // Always use the adjusted/discounted price - this is what was saved to DB
+      const displayPrice = adjustment?.adjustedPrice ?? item.unit_price;
+      const displayTotal = adjustment?.adjustedTotal ?? item.total_price;
       const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
+      
+      // Show the discounted price on the bill (not the original price)
       return `
       <tr>
         <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
