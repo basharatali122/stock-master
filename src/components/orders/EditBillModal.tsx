@@ -114,6 +114,9 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
       // Calculate stock changes and update items
       const stockUpdates: { productId: string; delta: number }[] = [];
       
+      // Calculate the reduction in order total (for discount adjustment)
+      const originalTotal = order.total_amount;
+      
       // Process each item
       for (const item of items) {
         const original = originalItems.find(o => o.id === item.id);
@@ -177,6 +180,53 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
       const oldTotal = order.total_amount;
       const creditDelta = oldTotal - newTotal;
 
+      // If order total decreased, adjust booker's discount proportionally
+      if (creditDelta > 0) {
+        // Get total discounts given on this order
+        const { data: discountRecords } = await supabase
+          .from('discount_history')
+          .select('id, discount_value, original_amount')
+          .eq('order_id', order.id);
+
+        if (discountRecords && discountRecords.length > 0) {
+          // Calculate proportion of reduction
+          const reductionRatio = creditDelta / originalTotal;
+          const discountToDeduct = discountRecords.reduce((sum, record) => {
+            return sum + (record.discount_value * reductionRatio);
+          }, 0);
+
+          if (discountToDeduct > 0) {
+            // Update booker financials - deduct proportional discount
+            const { data: bookerFinancials } = await supabase
+              .from('booker_financials')
+              .select('id, total_discounts_given')
+              .eq('booker_id', order.booker_id)
+              .maybeSingle();
+
+            if (bookerFinancials) {
+              await supabase
+                .from('booker_financials')
+                .update({
+                  total_discounts_given: Math.max(0, (bookerFinancials.total_discounts_given || 0) - discountToDeduct),
+                })
+                .eq('id', bookerFinancials.id);
+            }
+
+            // Update discount history records to reflect reduced discount
+            for (const record of discountRecords) {
+              const newDiscountValue = Math.max(0, record.discount_value - (record.discount_value * reductionRatio));
+              await supabase
+                .from('discount_history')
+                .update({
+                  discount_value: newDiscountValue,
+                  discounted_amount: newTotal,
+                })
+                .eq('id', record.id);
+            }
+          }
+        }
+      }
+
       // Update order total
       const { error: orderError } = await supabase
         .from('orders')
@@ -200,7 +250,7 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
         }
       }
 
-      toast.success('Bill updated successfully. Stock adjusted.');
+      toast.success('Bill updated successfully. Stock and discounts adjusted.');
       onSuccess();
       onClose();
     } catch (error: any) {

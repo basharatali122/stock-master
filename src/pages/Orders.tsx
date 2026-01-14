@@ -466,7 +466,50 @@ const Orders: React.FC = () => {
     }
 
     try {
-      // First delete order items
+      // First, get total discounts given on this order from discount_history
+      const { data: discountRecords } = await supabase
+        .from('discount_history')
+        .select('discount_value')
+        .eq('order_id', order.id);
+
+      const totalDiscountOnOrder = discountRecords?.reduce((sum, record) => sum + (record.discount_value || 0), 0) || 0;
+
+      // Deduct discount from booker's total discounts if any discount was given
+      if (totalDiscountOnOrder > 0) {
+        const { data: bookerFinancials } = await supabase
+          .from('booker_financials')
+          .select('id, total_discounts_given')
+          .eq('booker_id', order.booker_id)
+          .maybeSingle();
+
+        if (bookerFinancials) {
+          await supabase
+            .from('booker_financials')
+            .update({
+              total_discounts_given: Math.max(0, (bookerFinancials.total_discounts_given || 0) - totalDiscountOnOrder),
+            })
+            .eq('id', bookerFinancials.id);
+        }
+
+        // Delete discount history records for this order
+        await supabase
+          .from('discount_history')
+          .delete()
+          .eq('order_id', order.id);
+      }
+
+      // Restore stock for all order items
+      for (const item of order.order_items || []) {
+        const product = products.find(p => p.id === item.product_id);
+        if (product) {
+          await supabase
+            .from('products')
+            .update({ stock_quantity: product.stock_quantity + item.quantity })
+            .eq('id', item.product_id);
+        }
+      }
+
+      // Delete order items
       const { error: itemsError } = await supabase
         .from('order_items')
         .delete()
@@ -492,12 +535,12 @@ const Orders: React.FC = () => {
           .eq('id', order.shop_id);
       }
 
-      toast.success('Order deleted successfully');
+      toast.success('Order deleted successfully. Stock restored and discounts deducted.');
       refetch();
     } catch (error: any) {
       toast.error('Failed to delete order: ' + error.message);
     }
-  }, [isAdmin, allShops, shops, refetch]);
+  }, [isAdmin, allShops, shops, products, refetch]);
 
   const handleUpdateOrder = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
