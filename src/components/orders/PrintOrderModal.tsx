@@ -24,7 +24,7 @@ interface Order {
   status: string;
   payment_status: string;
   created_at: string;
-  shops?: { name: string; routes?: { name: string } };
+  shops?: { name: string; address?: string; phone?: string; routes?: { name: string } };
   booker_name?: string;
   order_items?: OrderItem[];
 }
@@ -254,9 +254,10 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
         <div class="info-item"><span class="info-label">Order Number:</span><span class="info-value">${safeText(order.order_number)}</span></div>
         <div class="info-item"><span class="info-label">Date:</span><span class="info-value">${safeText(new Date(order.created_at).toLocaleDateString())}</span></div>
         <div class="info-item"><span class="info-label">Shop:</span><span class="info-value">${safeText(order.shops?.name || 'N/A')}</span></div>
+        ${order.shops?.address ? `<div class="info-item"><span class="info-label">Address:</span><span class="info-value">${safeText(order.shops.address)}</span></div>` : ''}
+        ${order.shops?.phone ? `<div class="info-item"><span class="info-label">Phone:</span><span class="info-value">${safeText(order.shops.phone)}</span></div>` : ''}
         <div class="info-item"><span class="info-label">Route:</span><span class="info-value">${safeText(order.shops?.routes?.name || 'N/A')}</span></div>
         <div class="info-item"><span class="info-label">Order Booker:</span><span class="info-value">${safeText(order.booker_name || 'N/A')}</span></div>
-        <div class="info-item"><span class="info-label">Status:</span><span class="badge ${getStatusBadgeClass(order.status)}">${safeText(order.status)}</span></div>
       </div>
       <table>
         <thead>

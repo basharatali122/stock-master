@@ -81,6 +81,16 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
               <td style="border: none; padding: 3px 0; font-size: 12px;"><strong>Shop:</strong> ${safeText(order.shops?.name || 'N/A')}</td>
               <td style="border: none; padding: 3px 0; font-size: 12px; text-align: right;"><strong>Route:</strong> ${safeText(order.shops?.routes?.name || 'N/A')}</td>
             </tr>
+            ${order.shops?.address ? `
+            <tr style="background: transparent;">
+              <td colspan="2" style="border: none; padding: 3px 0; font-size: 11px; color: #666;"><strong>Address:</strong> ${safeText(order.shops.address)}</td>
+            </tr>
+            ` : ''}
+            ${order.shops?.phone ? `
+            <tr style="background: transparent;">
+              <td colspan="2" style="border: none; padding: 3px 0; font-size: 11px; color: #666;"><strong>Phone:</strong> ${safeText(order.shops.phone)}</td>
+            </tr>
+            ` : ''}
             <tr style="background: transparent;">
               <td colspan="2" style="border: none; padding: 3px 0; font-size: 12px;"><strong>Booker:</strong> ${safeText(order.booker_name || 'N/A')}</td>
             </tr>

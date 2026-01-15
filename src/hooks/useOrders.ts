@@ -22,7 +22,7 @@ interface Order {
   status: string;
   payment_status: string;
   created_at: string;
-  shops?: { name: string; routes?: { name: string } };
+  shops?: { name: string; address?: string; phone?: string; routes?: { name: string } };
   booker_name?: string;
   order_items?: OrderItem[];
 }
@@ -67,7 +67,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
         .from('orders')
         .select(`
           *,
-          shops(name, routes(name)),
+          shops(name, address, phone, routes(name)),
           order_items(*, products(name, product_code))
         `)
         .order('created_at', { ascending: false })
@@ -182,7 +182,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       .from('orders')
       .select(`
         *,
-        shops(name, routes(name)),
+        shops(name, address, phone, routes(name)),
         order_items(*, products(name, product_code))
       `)
       .eq('id', orderId)
