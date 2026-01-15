@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Edit, Trash2, Package, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Loader2, PackagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { productSchema, validateInput } from '@/lib/validation';
 
@@ -33,7 +33,10 @@ const Products: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [addStockProduct, setAddStockProduct] = useState<Product | null>(null);
+  const [addStockQuantity, setAddStockQuantity] = useState('');
   const [submitting, setSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -210,6 +213,43 @@ const Products: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const openAddStockModal = (product: Product) => {
+    setAddStockProduct(product);
+    setAddStockQuantity('');
+    setShowAddStockModal(true);
+  };
+
+  const handleAddStock = async () => {
+    if (!addStockProduct) return;
+    
+    const quantityToAdd = parseInt(addStockQuantity) || 0;
+    if (quantityToAdd <= 0) {
+      toast.error('Please enter a valid quantity to add');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const newStock = (addStockProduct.stock_quantity || 0) + quantityToAdd;
+      const { error } = await supabase
+        .from('products')
+        .update({ stock_quantity: newStock })
+        .eq('id', addStockProduct.id);
+
+      if (error) throw error;
+
+      toast.success(`Added ${quantityToAdd} boxes to ${addStockProduct.name}. New total: ${newStock} boxes`);
+      setShowAddStockModal(false);
+      setAddStockProduct(null);
+      setAddStockQuantity('');
+      fetchProducts();
+    } catch (error: any) {
+      toast.error('Failed to add stock: ' + error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       product_code: '',
@@ -320,10 +360,17 @@ const Products: React.FC = () => {
             header: 'Actions',
             render: (item: Product) => (
               <div className="flex gap-2">
-                <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted">
+                <button 
+                  onClick={() => openAddStockModal(item)} 
+                  className="rounded-lg p-2 hover:bg-success/10"
+                  title="Add Stock"
+                >
+                  <PackagePlus className="h-4 w-4 text-success" />
+                </button>
+                <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted" title="Edit Product">
                   <Edit className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <button onClick={() => handleDeleteProduct(item)} className="rounded-lg p-2 hover:bg-destructive/10">
+                <button onClick={() => handleDeleteProduct(item)} className="rounded-lg p-2 hover:bg-destructive/10" title="Delete Product">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </button>
               </div>
@@ -725,6 +772,79 @@ const Products: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Stock Modal */}
+      {showAddStockModal && addStockProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
+            <h2 className="text-xl font-bold text-foreground">Add Stock</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add more stock to {addStockProduct.name}
+            </p>
+
+            <div className="mt-6 space-y-4">
+              <div className="rounded-lg bg-muted/50 p-4">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Current Stock:</span>
+                  <span className="font-medium">{addStockProduct.stock_quantity || 0} boxes</span>
+                </div>
+                <div className="flex justify-between mt-2">
+                  <span className="text-sm text-muted-foreground">Cartons:</span>
+                  <span className="font-medium">
+                    {Math.floor((addStockProduct.stock_quantity || 0) / (addStockProduct.boxes_per_carton || 24))} cartons
+                    {(addStockProduct.stock_quantity || 0) % (addStockProduct.boxes_per_carton || 24) > 0 && 
+                      ` + ${(addStockProduct.stock_quantity || 0) % (addStockProduct.boxes_per_carton || 24)} boxes`}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Quantity to Add (Boxes)</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  placeholder="Enter quantity to add"
+                  min="1"
+                  value={addStockQuantity}
+                  onChange={(e) => setAddStockQuantity(e.target.value)}
+                  disabled={submitting}
+                  autoFocus
+                />
+              </div>
+
+              {addStockQuantity && parseInt(addStockQuantity) > 0 && (
+                <div className="rounded-lg bg-success/10 p-4 border border-success/20">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-success">New Total Stock:</span>
+                    <span className="font-bold text-success">
+                      {(addStockProduct.stock_quantity || 0) + (parseInt(addStockQuantity) || 0)} boxes
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddStockModal(false); setAddStockProduct(null); setAddStockQuantity(''); }}
+                  className="btn-secondary"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddStock} 
+                  className="btn-primary" 
+                  disabled={submitting || !addStockQuantity || parseInt(addStockQuantity) <= 0}
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PackagePlus className="h-4 w-4 mr-2" />}
+                  Add Stock
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
