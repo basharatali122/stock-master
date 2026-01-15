@@ -215,6 +215,9 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
     const saved = await saveAdjustedPrices();
     if (!saved) return;
 
+    // Calculate total boxes/quantity
+    const totalBoxes = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+
     // Use the ADJUSTED prices for printing (these are now saved to DB)
     const itemsHtml = order.order_items?.map(item => {
       const adjustment = adjustedItems[item.id];
@@ -233,7 +236,6 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
         <td>${formatCurrencyForPrint(displayTotal)}</td>
       </tr>
     `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
-
     const discountHtml = discountAmount > 0 ? `
       <div class="summary-row discount">
         <span>Special Discount${discountType === 'percentage' ? ` (${discountValue}%)` : ''}:</span>
@@ -269,6 +271,7 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
         <tbody>${itemsHtml}</tbody>
       </table>
       <div class="summary">
+        <div class="summary-row" style="background: #e3f2fd; font-weight: bold;"><span>Total Boxes/Items:</span><span>${totalBoxes}</span></div>
         <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(adjustedSubtotal)}</span></div>
         ${discountHtml}
         <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>

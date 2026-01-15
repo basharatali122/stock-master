@@ -45,6 +45,9 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
     
     // Generate individual bill for each order
     const billsHtml = orders.map((order, index) => {
+      // Calculate total boxes/quantity for this order
+      const totalBoxes = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      
       const itemsHtml = order.order_items?.map(item => {
         const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
         return `
@@ -100,6 +103,10 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
           
           <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
             <table style="width: 100%; border: none; font-size: 12px;">
+              <tr style="background: #e3f2fd;">
+                <td style="border: none; padding: 6px 0;"><strong>Total Boxes/Items:</strong></td>
+                <td style="border: none; padding: 6px 0; text-align: right; font-weight: bold; font-size: 14px;">${totalBoxes}</td>
+              </tr>
               <tr style="background: transparent;">
                 <td style="border: none; padding: 3px 0;"><strong>Subtotal:</strong></td>
                 <td style="border: none; padding: 3px 0; text-align: right;">${formatCurrencyForPrint(order.total_amount)}</td>
