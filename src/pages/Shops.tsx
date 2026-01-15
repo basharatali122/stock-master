@@ -345,13 +345,11 @@ const Shops: React.FC = () => {
         query = query.eq("booker_id", selectedBookerId);
       }
 
-      // Filter by date if selected
+      // Filter by date if selected - show all credits UP TO and including selected date
       if (creditDateFilter) {
-        const startDate = new Date(creditDateFilter);
-        startDate.setHours(0, 0, 0, 0);
         const endDate = new Date(creditDateFilter);
         endDate.setHours(23, 59, 59, 999);
-        query = query.gte("created_at", startDate.toISOString()).lte("created_at", endDate.toISOString());
+        query = query.lte("created_at", endDate.toISOString());
       }
 
       const { data: ordersWithDues, error } = await query;
@@ -393,10 +391,12 @@ const Shops: React.FC = () => {
         `;
       });
 
+      const dateLabel = creditDateFilter ? `Up to ${new Date(creditDateFilter).toLocaleDateString()}` : "All Time";
+      
       const content = `
         <div class="header">
           <h1>Pending Credits Report</h1>
-          <p>Order Booker: ${bookerName}</p>
+          <p>Order Booker: ${bookerName} | ${dateLabel}</p>
         </div>
         
         <div class="info-grid">
@@ -865,13 +865,14 @@ const Shops: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Filter by Date (Optional)</label>
+                <label className="block text-sm font-medium mb-2">Show Credits Up To Date (Optional)</label>
                 <input
                   type="date"
                   value={creditDateFilter}
                   onChange={(e) => setCreditDateFilter(e.target.value)}
                   className="input-field w-full"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Shows all credit records up to and including this date</p>
               </div>
 
               <div className="flex gap-3 pt-4">
