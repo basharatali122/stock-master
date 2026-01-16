@@ -364,7 +364,31 @@ const Shops: React.FC = () => {
 
       if (error) throw error;
 
-      if (!ordersWithDues || ordersWithDues.length === 0) {
+      // Also fetch shops with manual credits
+      let shopsQuery = supabase
+        .from("shops")
+        .select(`
+          id,
+          name,
+          phone,
+          manual_credit,
+          routes!inner(name, assigned_booker_id)
+        `)
+        .gt("manual_credit", 0);
+
+      // Filter by booker if selected - filter by route's assigned booker
+      if (selectedBookerId !== "all") {
+        shopsQuery = shopsQuery.eq("routes.assigned_booker_id", selectedBookerId);
+      }
+
+      const { data: shopsWithManualCredit, error: shopsError } = await shopsQuery;
+
+      if (shopsError) throw shopsError;
+
+      const hasOrderCredits = ordersWithDues && ordersWithDues.length > 0;
+      const hasManualCredits = shopsWithManualCredit && shopsWithManualCredit.length > 0;
+
+      if (!hasOrderCredits && !hasManualCredits) {
         toast.info("No pending credits found");
         return;
       }
@@ -376,29 +400,58 @@ const Shops: React.FC = () => {
       const now = new Date();
       let tableRows = "";
       let totalPending = 0;
+      let orderIndex = 0;
 
-      ordersWithDues.forEach((order: any, index: number) => {
-        const remainingBalance = (order.total_amount || 0) - (order.paid_amount || 0);
-        totalPending += remainingBalance;
+      // Add order-based credits
+      if (ordersWithDues) {
+        ordersWithDues.forEach((order: any) => {
+          orderIndex++;
+          const remainingBalance = (order.total_amount || 0) - (order.paid_amount || 0);
+          totalPending += remainingBalance;
 
-        const orderDate = new Date(order.created_at);
-        const pendingDays = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+          const orderDate = new Date(order.created_at);
+          const pendingDays = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
 
-        tableRows += `
-          <tr>
-            <td style="text-align: center;">${index + 1}</td>
-            <td>${orderDate.toLocaleDateString()}</td>
-            <td>${order.order_number}</td>
-            <td>${order.shops?.name || "N/A"}</td>
-            <td>${order.shops?.routes?.name || "N/A"}</td>
-            <td style="text-align: right;">${formatCurrencyForPrint(order.total_amount)}</td>
-            <td style="text-align: right; font-weight: bold; color: #dc2626;">${formatCurrencyForPrint(remainingBalance)}</td>
-            <td style="text-align: center;">${pendingDays} days</td>
-            <td>${order.shops?.phone || "N/A"}</td>
-          </tr>
-        `;
-      });
+          tableRows += `
+            <tr>
+              <td style="text-align: center;">${orderIndex}</td>
+              <td>${orderDate.toLocaleDateString()}</td>
+              <td>${order.order_number}</td>
+              <td>${order.shops?.name || "N/A"}</td>
+              <td>${order.shops?.routes?.name || "N/A"}</td>
+              <td style="text-align: right;">${formatCurrencyForPrint(order.total_amount)}</td>
+              <td style="text-align: right; font-weight: bold; color: #dc2626;">${formatCurrencyForPrint(remainingBalance)}</td>
+              <td style="text-align: center;">${pendingDays} days</td>
+              <td>${order.shops?.phone || "N/A"}</td>
+            </tr>
+          `;
+        });
+      }
 
+      // Add manual credits section
+      let manualCreditRows = "";
+      let totalManualCredit = 0;
+      let manualIndex = 0;
+
+      if (shopsWithManualCredit) {
+        shopsWithManualCredit.forEach((shop: any) => {
+          manualIndex++;
+          const manualCredit = shop.manual_credit || 0;
+          totalManualCredit += manualCredit;
+
+          manualCreditRows += `
+            <tr>
+              <td style="text-align: center;">${manualIndex}</td>
+              <td>${shop.name}</td>
+              <td>${shop.routes?.name || "N/A"}</td>
+              <td style="text-align: right; font-weight: bold; color: #dc2626;">${formatCurrencyForPrint(manualCredit)}</td>
+              <td>${shop.phone || "N/A"}</td>
+            </tr>
+          `;
+        });
+      }
+
+      const grandTotal = totalPending + totalManualCredit;
       const dateLabel = creditDateFilter ? `Up to ${new Date(creditDateFilter).toLocaleDateString()}` : "All Time";
       
       const content = `
@@ -410,22 +463,24 @@ const Shops: React.FC = () => {
         <div class="info-grid">
           <div class="info-item">
             <span class="info-label">Total Orders with Dues:</span>
-            <span class="info-value">${ordersWithDues.length}</span>
+            <span class="info-value">${ordersWithDues?.length || 0}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Total Pending Amount:</span>
-            <span class="info-value" style="color: #dc2626;">${formatCurrencyForPrint(totalPending)}</span>
+            <span class="info-label">Shops with Manual Credit:</span>
+            <span class="info-value">${shopsWithManualCredit?.length || 0}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Grand Total Pending:</span>
+            <span class="info-value" style="color: #dc2626;">${formatCurrencyForPrint(grandTotal)}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Report Date:</span>
-            <span class="info-value">${now.toLocaleDateString()}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Report Time:</span>
-            <span class="info-value">${now.toLocaleTimeString()}</span>
+            <span class="info-value">${now.toLocaleDateString()} ${now.toLocaleTimeString()}</span>
           </div>
         </div>
 
+        ${hasOrderCredits ? `
+        <h3 style="margin-top: 20px; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Order-Based Credits (${formatCurrencyForPrint(totalPending)})</h3>
         <table>
           <thead>
             <tr>
@@ -444,11 +499,38 @@ const Shops: React.FC = () => {
             ${tableRows}
           </tbody>
         </table>
+        ` : ''}
+
+        ${hasManualCredits ? `
+        <h3 style="margin-top: 20px; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Previous/Manual Credits (${formatCurrencyForPrint(totalManualCredit)})</h3>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: center;">Sr. No.</th>
+              <th>Shop/Client Name</th>
+              <th>Route Name</th>
+              <th style="text-align: right;">Credit Amount</th>
+              <th>Contact No.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${manualCreditRows}
+          </tbody>
+        </table>
+        ` : ''}
 
         <div class="summary">
+          ${hasOrderCredits ? `<div class="summary-row">
+            <span>Order Credits Subtotal:</span>
+            <span>${formatCurrencyForPrint(totalPending)}</span>
+          </div>` : ''}
+          ${hasManualCredits ? `<div class="summary-row">
+            <span>Manual Credits Subtotal:</span>
+            <span>${formatCurrencyForPrint(totalManualCredit)}</span>
+          </div>` : ''}
           <div class="summary-row total">
             <span>Grand Total Pending:</span>
-            <span style="color: #dc2626;">${formatCurrencyForPrint(totalPending)}</span>
+            <span style="color: #dc2626;">${formatCurrencyForPrint(grandTotal)}</span>
           </div>
         </div>
       `;
