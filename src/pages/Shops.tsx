@@ -3,11 +3,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import DataTable from "@/components/ui/DataTable";
 import ShopHistory from "@/components/ShopHistory";
-import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer, DollarSign } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer, DollarSign, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { printContent, formatCurrencyForPrint } from "@/lib/print";
 import { shopSchema, validateInput } from "@/lib/validation";
 import { AddManualCreditModal } from "@/components/shops/AddManualCreditModal";
+import { RecordPreviousCreditModal } from "@/components/shops/RecordPreviousCreditModal";
 
 interface Shop {
   id: string;
@@ -51,6 +52,8 @@ const Shops: React.FC = () => {
   const [creditDateFilter, setCreditDateFilter] = useState("");
   const [showAddCreditModal, setShowAddCreditModal] = useState(false);
   const [selectedShopForCredit, setSelectedShopForCredit] = useState<Shop | null>(null);
+  const [showRecordCreditModal, setShowRecordCreditModal] = useState(false);
+  const [selectedShopForRecordCredit, setSelectedShopForRecordCredit] = useState<Shop | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -313,6 +316,11 @@ const Shops: React.FC = () => {
     setShowAddCreditModal(true);
   };
 
+  const openRecordCreditModal = (shop: Shop) => {
+    setSelectedShopForRecordCredit(shop);
+    setShowRecordCreditModal(true);
+  };
+
   const handlePrintPendingCredits = async () => {
     try {
       // Build query for orders with pending payment
@@ -525,6 +533,15 @@ const Shops: React.FC = () => {
                 title="Add Manual Credit"
               >
                 <DollarSign className="h-4 w-4 text-warning" />
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => openRecordCreditModal(item)}
+                className="rounded-lg p-2 hover:bg-success/10"
+                title="Record Previous Credit Payment"
+              >
+                <CreditCard className="h-4 w-4 text-success" />
               </button>
             )}
             <button onClick={() => openEditModal(item)} className="rounded-lg p-2 hover:bg-muted">
@@ -905,6 +922,18 @@ const Shops: React.FC = () => {
           onClose={() => {
             setShowAddCreditModal(false);
             setSelectedShopForCredit(null);
+          }}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {/* Record Previous Credit Modal */}
+      {showRecordCreditModal && selectedShopForRecordCredit && (
+        <RecordPreviousCreditModal
+          shop={selectedShopForRecordCredit}
+          onClose={() => {
+            setShowRecordCreditModal(false);
+            setSelectedShopForRecordCredit(null);
           }}
           onSuccess={fetchData}
         />
