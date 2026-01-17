@@ -121,6 +121,39 @@ const Shops: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // Realtime subscription for shops (credit balance updates)
+  useEffect(() => {
+    const shopsChannel = supabase
+      .channel('shops-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shops'
+        },
+        (payload) => {
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+          
+          if (eventType === 'UPDATE') {
+            setShops(prev => prev.map(shop => 
+              shop.id === newRecord.id 
+                ? { ...shop, ...newRecord }
+                : shop
+            ));
+          } else if (eventType === 'INSERT' || eventType === 'DELETE') {
+            // Refetch for insert/delete to get full data with relations
+            fetchData();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(shopsChannel);
+    };
+  }, [fetchData]);
+
   const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
 
