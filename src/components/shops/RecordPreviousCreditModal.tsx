@@ -127,12 +127,17 @@ export const RecordPreviousCreditModal = memo(({ shop, onClose, onSuccess }: Rec
       <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-elevated animate-scale-in">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Record Previous Credit</h2>
+            <h2 className="text-xl font-bold text-foreground">Record Payment</h2>
             <p className="text-sm text-muted-foreground">{shop.name}</p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
+        </div>
+
+        <div className="bg-success/10 border border-success/30 rounded-lg p-3 mb-4">
+          <p className="text-sm font-medium text-success">⬇️ This reduces credit (records a payment received)</p>
+          <p className="text-xs text-muted-foreground mt-1">Use this when a shop pays their pending credit</p>
         </div>
 
         <div className="bg-muted/50 rounded-lg p-3 mb-4">

@@ -645,7 +645,7 @@ const Shops: React.FC = () => {
               <button
                 onClick={() => openAddCreditModal(item)}
                 className="rounded-lg p-2 hover:bg-warning/10"
-                title="Add Manual Credit"
+                title="Add Manual Credit (increases balance)"
               >
                 <DollarSign className="h-4 w-4 text-warning" />
               </button>
@@ -654,7 +654,7 @@ const Shops: React.FC = () => {
               <button
                 onClick={() => openRecordCreditModal(item)}
                 className="rounded-lg p-2 hover:bg-success/10"
-                title="Record Previous Credit Payment"
+                title="Record Payment (reduces balance)"
               >
                 <CreditCard className="h-4 w-4 text-success" />
               </button>

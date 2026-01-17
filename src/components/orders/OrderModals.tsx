@@ -420,6 +420,28 @@ export const NewOrderModal = memo(({
     };
 
     fetchPendingCredits();
+
+    // Set up realtime subscription for credit updates on this shop
+    const channel = supabase
+      .channel(`shop-orders-${selectedShop}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `shop_id=eq.${selectedShop}`,
+        },
+        () => {
+          // Refetch pending credits when orders change
+          fetchPendingCredits();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedShop]);
 
   return (

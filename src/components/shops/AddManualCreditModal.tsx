@@ -82,6 +82,11 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
           </button>
         </div>
 
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4">
+          <p className="text-sm font-medium text-warning">⬆️ This adds credit to the shop's balance</p>
+          <p className="text-xs text-muted-foreground mt-1">Use this for pending payments from before the system was implemented</p>
+        </div>
+
         <div className="bg-muted/50 rounded-lg p-3 mb-4">
           <p className="text-sm text-muted-foreground">Current Balance</p>
           <p className="text-xl font-bold text-warning">Rs. {(shop.credit_balance || 0).toLocaleString()}</p>

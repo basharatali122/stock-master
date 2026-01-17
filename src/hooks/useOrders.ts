@@ -182,16 +182,28 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
     const { eventType, new: newRecord, old: oldRecord } = payload;
 
     if (eventType === 'UPDATE') {
-      // Update shops list
+      // Update shops list with all relevant fields
       setShops(prev => prev.map(shop => 
         shop.id === newRecord.id 
-          ? { ...shop, credit_balance: newRecord.credit_balance }
+          ? { 
+              ...shop, 
+              credit_balance: newRecord.credit_balance,
+              name: newRecord.name,
+              address: newRecord.address,
+              shop_code: newRecord.shop_code
+            }
           : shop
       ));
-      // Update allShops list for admin
+      // Update allShops list for admin with all relevant fields
       setAllShops(prev => prev.map(shop => 
         shop.id === newRecord.id 
-          ? { ...shop, credit_balance: newRecord.credit_balance }
+          ? { 
+              ...shop, 
+              credit_balance: newRecord.credit_balance,
+              name: newRecord.name,
+              address: newRecord.address,
+              shop_code: newRecord.shop_code
+            }
           : shop
       ));
     } else if (eventType === 'INSERT') {
@@ -201,7 +213,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       setShops(prev => prev.filter(shop => shop.id !== oldRecord.id));
       setAllShops(prev => prev.filter(shop => shop.id !== oldRecord.id));
     }
-  }, []);
+  }, [fetchData]);
 
   const fetchSingleOrder = async (orderId: string): Promise<Order | null> => {
     const { data, error } = await supabase
