@@ -1,5 +1,5 @@
 import React, { memo, useState, useEffect, useMemo } from 'react';
-import { X, Loader2, Plus, Minus, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { X, Loader2, Plus, Minus, Trash2, Package, AlertTriangle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -11,6 +11,7 @@ interface OrderItem {
   discount_applied: number;
   total_price: number;
   products?: { name: string; product_code: string | null };
+  isNew?: boolean; // Flag for newly added items
 }
 
 interface Order {
@@ -50,6 +51,12 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
   const [items, setItems] = useState<OrderItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [originalItems, setOriginalItems] = useState<OrderItem[]>([]);
+  
+  // New product addition states
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [newProductQty, setNewProductQty] = useState('1');
 
   useEffect(() => {
     if (order.order_items) {
@@ -84,12 +91,67 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
     setItems(prev => prev.filter(item => item.id !== itemId));
   };
 
+  // Filter available products (not already in the order)
+  const availableProducts = useMemo(() => {
+    const existingProductIds = items.map(i => i.product_id);
+    return products.filter(p => 
+      !existingProductIds.includes(p.id) && 
+      p.stock_quantity > 0 &&
+      (productSearch === '' || 
+       p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+       (p.product_code && p.product_code.toLowerCase().includes(productSearch.toLowerCase())))
+    );
+  }, [products, items, productSearch]);
+
+  const handleAddProduct = () => {
+    if (!selectedProductId) {
+      toast.error('Please select a product');
+      return;
+    }
+
+    const qty = parseInt(newProductQty) || 1;
+    if (qty < 1 || qty > 10000) {
+      toast.error('Quantity must be between 1 and 10,000');
+      return;
+    }
+
+    const product = products.find(p => p.id === selectedProductId);
+    if (!product) return;
+
+    if (qty > product.stock_quantity) {
+      toast.error(`Insufficient stock! Available: ${product.stock_quantity} boxes`);
+      return;
+    }
+
+    const newItem: OrderItem = {
+      id: `new-${Date.now()}`, // Temporary ID for new items
+      product_id: product.id,
+      quantity: qty,
+      unit_price: product.price,
+      discount_applied: product.discount_percentage || 0,
+      total_price: product.price * qty * (1 - (product.discount_percentage || 0) / 100),
+      products: { name: product.name, product_code: product.product_code },
+      isNew: true
+    };
+
+    setItems(prev => [...prev, newItem]);
+    setSelectedProductId('');
+    setNewProductQty('1');
+    setProductSearch('');
+    setShowAddProduct(false);
+    toast.success(`${product.name} added to bill`);
+  };
+
   const newTotal = useMemo(() => {
     return items.reduce((sum, item) => sum + item.total_price, 0);
   }, [items]);
 
   const hasChanges = useMemo(() => {
+    // Check if any new items were added
+    if (items.some(item => item.isNew)) return true;
+    // Check if items were removed
     if (items.length !== originalItems.length) return true;
+    // Check if quantities changed
     return items.some(item => {
       const orig = originalItems.find(o => o.id === item.id);
       return !orig || orig.quantity !== item.quantity;
@@ -99,7 +161,8 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
   const getStockChange = (itemId: string) => {
     const current = items.find(i => i.id === itemId);
     const original = originalItems.find(i => i.id === itemId);
-    if (!current || !original) return 0;
+    if (!current) return 0;
+    if (!original) return -current.quantity; // New item - stock will be deducted
     return original.quantity - current.quantity; // positive = stock restored, negative = stock reduced
   };
 
@@ -114,11 +177,11 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
       // Calculate stock changes and update items
       const stockUpdates: { productId: string; delta: number }[] = [];
       
-      // Calculate the reduction in order total (for discount adjustment)
+      // Calculate the reduction in order total (for credit balance adjustment only, NOT discount)
       const originalTotal = order.total_amount;
       
-      // Process each item
-      for (const item of items) {
+      // Process each existing item (quantity changes and removals)
+      for (const item of items.filter(i => !i.isNew)) {
         const original = originalItems.find(o => o.id === item.id);
         
         if (item.quantity === 0) {
@@ -162,10 +225,33 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
         }
       }
 
-      // Update stock quantities
+      // Handle new items - insert them and deduct stock
+      const newItems = items.filter(i => i.isNew);
+      for (const newItem of newItems) {
+        const { error } = await supabase
+          .from('order_items')
+          .insert({
+            order_id: order.id,
+            product_id: newItem.product_id,
+            quantity: newItem.quantity,
+            unit_price: newItem.unit_price,
+            discount_applied: newItem.discount_applied,
+            total_price: newItem.total_price
+          });
+        if (error) throw error;
+
+        // Stock will be deducted via trigger, but we track it for feedback
+        stockUpdates.push({ productId: newItem.product_id, delta: -newItem.quantity });
+      }
+
+      // Update stock quantities for existing items
       for (const update of stockUpdates) {
+        // Skip new items as stock is deducted via trigger
+        const isNewItem = newItems.some(ni => ni.product_id === update.productId);
+        if (isNewItem && update.delta < 0) continue;
+        
         const product = products.find(p => p.id === update.productId);
-        if (product) {
+        if (product && update.delta !== 0) {
           const { error } = await supabase
             .from('products')
             .update({ stock_quantity: product.stock_quantity + update.delta })
@@ -176,56 +262,8 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
         }
       }
 
-      // Calculate credit balance change
-      const oldTotal = order.total_amount;
-      const creditDelta = oldTotal - newTotal;
-
-      // If order total decreased, adjust booker's discount proportionally
-      if (creditDelta > 0) {
-        // Get total discounts given on this order
-        const { data: discountRecords } = await supabase
-          .from('discount_history')
-          .select('id, discount_value, original_amount')
-          .eq('order_id', order.id);
-
-        if (discountRecords && discountRecords.length > 0) {
-          // Calculate proportion of reduction
-          const reductionRatio = creditDelta / originalTotal;
-          const discountToDeduct = discountRecords.reduce((sum, record) => {
-            return sum + (record.discount_value * reductionRatio);
-          }, 0);
-
-          if (discountToDeduct > 0) {
-            // Update booker financials - deduct proportional discount
-            const { data: bookerFinancials } = await supabase
-              .from('booker_financials')
-              .select('id, total_discounts_given')
-              .eq('booker_id', order.booker_id)
-              .maybeSingle();
-
-            if (bookerFinancials) {
-              await supabase
-                .from('booker_financials')
-                .update({
-                  total_discounts_given: Math.max(0, (bookerFinancials.total_discounts_given || 0) - discountToDeduct),
-                })
-                .eq('id', bookerFinancials.id);
-            }
-
-            // Update discount history records to reflect reduced discount
-            for (const record of discountRecords) {
-              const newDiscountValue = Math.max(0, record.discount_value - (record.discount_value * reductionRatio));
-              await supabase
-                .from('discount_history')
-                .update({
-                  discount_value: newDiscountValue,
-                  discounted_amount: newTotal,
-                })
-                .eq('id', record.id);
-            }
-          }
-        }
-      }
+      // Calculate credit balance change (difference between old and new total)
+      const creditDelta = originalTotal - newTotal;
 
       // Update order total
       const { error: orderError } = await supabase
@@ -234,7 +272,9 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
         .eq('id', order.id);
       if (orderError) throw orderError;
 
-      // Update shop credit balance
+      // Update shop credit balance based on total change
+      // If order total decreased, reduce shop's credit (they owe less)
+      // If order total increased, increase shop's credit (they owe more)
       if (creditDelta !== 0) {
         const { data: shop } = await supabase
           .from('shops')
@@ -243,14 +283,18 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
           .single();
         
         if (shop) {
+          const newCreditBalance = Math.max(0, (shop.credit_balance || 0) - creditDelta);
           await supabase
             .from('shops')
-            .update({ credit_balance: Math.max(0, (shop.credit_balance || 0) - creditDelta) })
+            .update({ credit_balance: newCreditBalance })
             .eq('id', order.shop_id);
         }
       }
 
-      toast.success('Bill updated successfully. Stock and discounts adjusted.');
+      // Note: Discounts are NOT modified here - they are only tracked when admin
+      // explicitly applies a discount through the discount feature, not when editing bill items
+
+      toast.success('Bill updated successfully. Order total and shop credit adjusted.');
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -278,20 +322,24 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
             <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-warning">Stock will be adjusted automatically</p>
-              <p className="text-xs text-warning/80">Decreasing quantity will restore stock. Increasing will deduct from stock.</p>
+              <p className="text-xs text-warning/80">Decreasing quantity will restore stock. Adding new products will deduct from stock.</p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3 mb-6">
+        {/* Existing Items */}
+        <div className="space-y-3 mb-4">
           {items.filter(item => item.quantity > 0 || originalItems.find(o => o.id === item.id)).map((item) => {
             const product = products.find(p => p.id === item.product_id);
             const stockChange = getStockChange(item.id);
             
             return (
-              <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+              <div key={item.id} className={`flex items-center gap-3 p-3 rounded-lg border ${item.isNew ? 'bg-success/5 border-success/30' : 'bg-muted/50 border-border'}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
+                    {item.isNew && (
+                      <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded font-medium">NEW</span>
+                    )}
                     {item.products?.product_code && (
                       <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
                         {item.products.product_code}
@@ -357,6 +405,74 @@ export const EditBillModal = memo(({ order, products, onClose, onSuccess }: Edit
             );
           })}
         </div>
+
+        {/* Add Product Section */}
+        {!showAddProduct ? (
+          <button
+            onClick={() => setShowAddProduct(true)}
+            className="w-full py-3 border-2 border-dashed border-primary/30 rounded-lg text-primary hover:bg-primary/5 flex items-center justify-center gap-2 mb-4"
+            disabled={submitting}
+          >
+            <Plus className="h-4 w-4" />
+            Add Product to Bill
+          </button>
+        ) : (
+          <div className="p-4 bg-muted/30 rounded-lg border border-border mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium">Add New Product</h4>
+              <button onClick={() => setShowAddProduct(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="input-field pl-10"
+                />
+              </div>
+              
+              <select
+                value={selectedProductId}
+                onChange={(e) => setSelectedProductId(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Select a product</option>
+                {availableProducts.slice(0, 50).map(product => (
+                  <option key={product.id} value={product.id}>
+                    {product.product_code ? `[${product.product_code}] ` : ''}{product.name} - Rs. {product.price.toLocaleString()} (Stock: {product.stock_quantity})
+                  </option>
+                ))}
+              </select>
+              
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
+                  <input
+                    type="number"
+                    value={newProductQty}
+                    onChange={(e) => setNewProductQty(e.target.value)}
+                    className="input-field"
+                    min="1"
+                  />
+                </div>
+                <button
+                  onClick={handleAddProduct}
+                  className="btn-primary self-end"
+                  disabled={!selectedProductId}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="border-t border-border pt-4 space-y-2">
           <div className="flex justify-between text-sm">

@@ -69,10 +69,8 @@ export const RecordPreviousCreditModal = memo(({ shop, onClose, onSuccess }: Rec
       return;
     }
 
-    if (amountNum > (shop.credit_balance || 0)) {
-      toast.error(`Amount cannot exceed current credit balance of Rs. ${(shop.credit_balance || 0).toLocaleString()}`);
-      return;
-    }
+    // Allow recording payment up to the current credit balance (if any)
+    // For shops with 0 credit, we still allow payment recording (it will just zero out)
 
     setSubmitting(true);
     try {
@@ -183,13 +181,13 @@ export const RecordPreviousCreditModal = memo(({ shop, onClose, onSuccess }: Rec
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 min="1"
-                max={shop.credit_balance || 10000000}
+                max="10000000"
                 step="1"
                 disabled={submitting}
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Maximum: Rs. {(shop.credit_balance || 0).toLocaleString()}
+              This will reduce the shop's credit balance and add to the booker's cash collection
             </p>
           </div>
 
@@ -208,7 +206,7 @@ export const RecordPreviousCreditModal = memo(({ shop, onClose, onSuccess }: Rec
           </div>
 
           {/* New Balance Preview */}
-          {amount && parseFloat(amount) > 0 && parseFloat(amount) <= (shop.credit_balance || 0) && (
+          {amount && parseFloat(amount) > 0 && (
             <div className="bg-success/10 rounded-lg p-3">
               <p className="text-sm text-muted-foreground">After Recording Payment</p>
               <p className="text-xl font-bold text-success">

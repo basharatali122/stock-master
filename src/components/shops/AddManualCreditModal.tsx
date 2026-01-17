@@ -36,14 +36,24 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
 
     setSubmitting(true);
     try {
-      // Update shop credit balance
+      // First get the current manual_credit value
+      const { data: currentShop } = await supabase
+        .from('shops')
+        .select('manual_credit')
+        .eq('id', shop.id)
+        .single();
+
+      const currentManualCredit = currentShop?.manual_credit || 0;
+
+      // Update shop credit balance and accumulate manual credit
       const newBalance = (shop.credit_balance || 0) + amountNum;
+      const newManualCredit = currentManualCredit + amountNum;
       
       const { error } = await supabase
         .from('shops')
         .update({ 
           credit_balance: newBalance,
-          manual_credit: amountNum
+          manual_credit: newManualCredit
         })
         .eq('id', shop.id);
 

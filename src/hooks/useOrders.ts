@@ -155,7 +155,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
     }
   }, [isAdmin, userId]);
 
-  // Smart update for realtime changes
+  // Smart update for realtime changes - orders
   const handleRealtimeUpdate = useCallback((payload: any) => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
 
@@ -174,6 +174,32 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       ));
     } else if (eventType === 'DELETE') {
       setOrders(prev => prev.filter(order => order.id !== oldRecord.id));
+    }
+  }, []);
+
+  // Smart update for realtime changes - shops (for credit balance updates)
+  const handleShopRealtimeUpdate = useCallback((payload: any) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    if (eventType === 'UPDATE') {
+      // Update shops list
+      setShops(prev => prev.map(shop => 
+        shop.id === newRecord.id 
+          ? { ...shop, credit_balance: newRecord.credit_balance }
+          : shop
+      ));
+      // Update allShops list for admin
+      setAllShops(prev => prev.map(shop => 
+        shop.id === newRecord.id 
+          ? { ...shop, credit_balance: newRecord.credit_balance }
+          : shop
+      ));
+    } else if (eventType === 'INSERT') {
+      // Refetch to get full shop data with relations
+      fetchData();
+    } else if (eventType === 'DELETE') {
+      setShops(prev => prev.filter(shop => shop.id !== oldRecord.id));
+      setAllShops(prev => prev.filter(shop => shop.id !== oldRecord.id));
     }
   }, []);
 
@@ -209,9 +235,9 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
     fetchData();
   }, [fetchData]);
 
-  // Optimized realtime subscription
+  // Optimized realtime subscription for orders
   useEffect(() => {
-    const channel = supabase
+    const ordersChannel = supabase
       .channel('orders-optimized')
       .on(
         'postgres_changes',
@@ -225,9 +251,29 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ordersChannel);
     };
   }, [handleRealtimeUpdate]);
+
+  // Realtime subscription for shops (credit balance updates)
+  useEffect(() => {
+    const shopsChannel = supabase
+      .channel('shops-credit-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shops'
+        },
+        handleShopRealtimeUpdate
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(shopsChannel);
+    };
+  }, [handleShopRealtimeUpdate]);
 
   return {
     orders,
