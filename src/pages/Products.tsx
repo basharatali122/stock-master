@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Edit, Trash2, Package, Loader2, PackagePlus } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Loader2, PackagePlus, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { productSchema, validateInput } from '@/lib/validation';
+import { printContent, formatCurrencyForPrint } from '@/lib/print';
 
 interface Product {
   id: string;
@@ -264,6 +265,141 @@ const Products: React.FC = () => {
     });
   };
 
+  const handlePrintStock = () => {
+    // Filter active products with stock
+    const activeProducts = products.filter(p => p.is_active && p.stock_quantity > 0);
+    
+    if (activeProducts.length === 0) {
+      toast.info('No products with stock available to print');
+      return;
+    }
+
+    // Sort by brand then by name
+    const sortedProducts = [...activeProducts].sort((a, b) => {
+      const brandA = a.brand || 'ZZZ';
+      const brandB = b.brand || 'ZZZ';
+      if (brandA !== brandB) return brandA.localeCompare(brandB);
+      return a.name.localeCompare(b.name);
+    });
+
+    // Group by brand
+    const groupedByBrand = sortedProducts.reduce((acc, product) => {
+      const brand = product.brand || 'Other';
+      if (!acc[brand]) acc[brand] = [];
+      acc[brand].push(product);
+      return acc;
+    }, {} as Record<string, Product[]>);
+
+    const now = new Date();
+    let totalItems = 0;
+    let totalBoxes = 0;
+    let totalValue = 0;
+
+    let brandSections = '';
+
+    Object.entries(groupedByBrand).forEach(([brand, brandProducts]) => {
+      let brandTotal = 0;
+      let brandBoxes = 0;
+      let brandIndex = 0;
+
+      let productRows = '';
+      brandProducts.forEach((product) => {
+        brandIndex++;
+        totalItems++;
+        const boxes = product.stock_quantity || 0;
+        const cartons = Math.floor(boxes / (product.boxes_per_carton || 24));
+        const remainingBoxes = boxes % (product.boxes_per_carton || 24);
+        const value = boxes * product.price;
+        
+        totalBoxes += boxes;
+        brandBoxes += boxes;
+        totalValue += value;
+        brandTotal += value;
+
+        productRows += `
+          <tr>
+            <td style="text-align: center;">${brandIndex}</td>
+            <td style="font-family: monospace; font-size: 11px;">${product.product_code || 'N/A'}</td>
+            <td>${product.name}</td>
+            <td>${product.pack_type || '-'}</td>
+            <td style="text-align: center;">${boxes}</td>
+            <td style="text-align: center;">${cartons}${remainingBoxes > 0 ? ` + ${remainingBoxes}` : ''}</td>
+            <td style="text-align: right;">${formatCurrencyForPrint(product.price)}</td>
+            <td style="text-align: right; font-weight: bold;">${formatCurrencyForPrint(value)}</td>
+          </tr>
+        `;
+      });
+
+      brandSections += `
+        <h3 style="margin-top: 20px; margin-bottom: 10px; font-size: 14px; background: #f0f0f0; padding: 8px; border-radius: 4px;">
+          ${brand} (${brandProducts.length} items, ${brandBoxes} boxes, ${formatCurrencyForPrint(brandTotal)})
+        </h3>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: center; width: 50px;">Sr.</th>
+              <th style="width: 80px;">Code</th>
+              <th>Product Name</th>
+              <th style="width: 100px;">Pack Type</th>
+              <th style="text-align: center; width: 80px;">Boxes</th>
+              <th style="text-align: center; width: 100px;">Cartons</th>
+              <th style="text-align: right; width: 90px;">Unit Price</th>
+              <th style="text-align: right; width: 100px;">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${productRows}
+          </tbody>
+        </table>
+      `;
+    });
+
+    const content = `
+      <div class="header">
+        <h1>Stock Inventory Report</h1>
+        <p>Generated on ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}</p>
+      </div>
+      
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Total Products:</span>
+          <span class="info-value">${totalItems}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Total Boxes:</span>
+          <span class="info-value">${totalBoxes.toLocaleString()}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Total Stock Value:</span>
+          <span class="info-value" style="color: #16a34a; font-weight: bold;">${formatCurrencyForPrint(totalValue)}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Brands:</span>
+          <span class="info-value">${Object.keys(groupedByBrand).length}</span>
+        </div>
+      </div>
+
+      ${brandSections}
+
+      <div class="summary">
+        <div class="summary-row">
+          <span>Total Products:</span>
+          <span>${totalItems} items</span>
+        </div>
+        <div class="summary-row">
+          <span>Total Boxes in Stock:</span>
+          <span>${totalBoxes.toLocaleString()} boxes</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total Stock Value:</span>
+          <span style="color: #16a34a;">${formatCurrencyForPrint(totalValue)}</span>
+        </div>
+      </div>
+    `;
+
+    printContent(content, 'Stock Inventory Report');
+  };
+
   const filteredProducts = useMemo(() => {
     const searchLower = searchQuery.toLowerCase();
     return products.filter((product) => {
@@ -402,13 +538,22 @@ const Products: React.FC = () => {
             </p>
           </div>
           {isAdmin && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn-primary"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handlePrintStock}
+                className="btn-secondary"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Stock
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn-primary"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </button>
+            </div>
           )}
         </div>
       </div>
