@@ -3,13 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import DataTable from "@/components/ui/DataTable";
 import ShopHistory from "@/components/ShopHistory";
-import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer, DollarSign, CreditCard } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Store, Phone, Loader2, Eye, Printer, DollarSign, CreditCard, List } from "lucide-react";
 import { toast } from "sonner";
 import { printContent, formatCurrencyForPrint } from "@/lib/print";
 import { shopSchema, validateInput } from "@/lib/validation";
 import { AddManualCreditModal } from "@/components/shops/AddManualCreditModal";
 import { RecordPreviousCreditModal } from "@/components/shops/RecordPreviousCreditModal";
-
+import { ManualCreditsListModal } from "@/components/shops/ManualCreditsListModal";
 interface Shop {
   id: string;
   name: string;
@@ -54,7 +54,9 @@ const Shops: React.FC = () => {
   const [selectedShopForCredit, setSelectedShopForCredit] = useState<Shop | null>(null);
   const [showRecordCreditModal, setShowRecordCreditModal] = useState(false);
   const [selectedShopForRecordCredit, setSelectedShopForRecordCredit] = useState<Shop | null>(null);
-
+  const [showManualCreditsModal, setShowManualCreditsModal] = useState(false);
+  const [manualCreditsBookerId, setManualCreditsBookerId] = useState<string | undefined>(undefined);
+  const [manualCreditsBookerName, setManualCreditsBookerName] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState({
     name: "",
     owner_name: "",
@@ -397,29 +399,51 @@ const Shops: React.FC = () => {
 
       if (error) throw error;
 
-      // Also fetch shops with manual credits
-      let shopsQuery = supabase
-        .from("shops")
+      // Fetch manual credits from the new table with booker info
+      let manualCreditsQuery = supabase
+        .from("manual_credits")
         .select(`
           id,
-          name,
-          phone,
-          manual_credit,
-          routes!inner(name, assigned_booker_id)
+          shop_id,
+          booker_id,
+          amount,
+          description,
+          status,
+          created_at,
+          shops(name, phone, routes(name))
         `)
-        .gt("manual_credit", 0);
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
 
-      // Filter by booker if selected - filter by route's assigned booker
+      // Filter by booker if selected
       if (selectedBookerId !== "all") {
-        shopsQuery = shopsQuery.eq("routes.assigned_booker_id", selectedBookerId);
+        manualCreditsQuery = manualCreditsQuery.eq("booker_id", selectedBookerId);
       }
 
-      const { data: shopsWithManualCredit, error: shopsError } = await shopsQuery;
+      // Filter by date if selected
+      if (creditDateFilter) {
+        const endDate = new Date(creditDateFilter);
+        endDate.setHours(23, 59, 59, 999);
+        manualCreditsQuery = manualCreditsQuery.lte("created_at", endDate.toISOString());
+      }
 
-      if (shopsError) throw shopsError;
+      const { data: manualCredits, error: manualCreditsError } = await manualCreditsQuery;
+
+      if (manualCreditsError) throw manualCreditsError;
+
+      // Fetch booker names for manual credits
+      const bookerIds = [...new Set((manualCredits || []).map(c => c.booker_id))];
+      let bookerMap = new Map<string, string>();
+      if (bookerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", bookerIds);
+        bookerMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+      }
 
       const hasOrderCredits = ordersWithDues && ordersWithDues.length > 0;
-      const hasManualCredits = shopsWithManualCredit && shopsWithManualCredit.length > 0;
+      const hasManualCredits = manualCredits && manualCredits.length > 0;
 
       if (!hasOrderCredits && !hasManualCredits) {
         toast.info("No pending credits found");
@@ -461,24 +485,31 @@ const Shops: React.FC = () => {
         });
       }
 
-      // Add manual credits section
+      // Add manual credits section with booker info
       let manualCreditRows = "";
       let totalManualCredit = 0;
       let manualIndex = 0;
 
-      if (shopsWithManualCredit) {
-        shopsWithManualCredit.forEach((shop: any) => {
+      if (manualCredits) {
+        manualCredits.forEach((credit: any) => {
           manualIndex++;
-          const manualCredit = shop.manual_credit || 0;
-          totalManualCredit += manualCredit;
+          const amount = credit.amount || 0;
+          totalManualCredit += amount;
+          const creditDate = new Date(credit.created_at);
+          const pendingDays = Math.floor((now.getTime() - creditDate.getTime()) / (1000 * 60 * 60 * 24));
+          const creditBookerName = bookerMap.get(credit.booker_id) || "Unknown";
 
           manualCreditRows += `
             <tr>
               <td style="text-align: center;">${manualIndex}</td>
-              <td>${shop.name}</td>
-              <td>${shop.routes?.name || "N/A"}</td>
-              <td style="text-align: right; font-weight: bold; color: #dc2626;">${formatCurrencyForPrint(manualCredit)}</td>
-              <td>${shop.phone || "N/A"}</td>
+              <td>${creditDate.toLocaleDateString()}</td>
+              <td>${credit.shops?.name || "N/A"}</td>
+              <td>${credit.shops?.routes?.name || "N/A"}</td>
+              <td>${creditBookerName}</td>
+              <td style="text-align: right; font-weight: bold; color: #dc2626;">${formatCurrencyForPrint(amount)}</td>
+              <td style="text-align: center;">${pendingDays} days</td>
+              <td>${credit.description || "-"}</td>
+              <td>${credit.shops?.phone || "N/A"}</td>
             </tr>
           `;
         });
@@ -499,8 +530,8 @@ const Shops: React.FC = () => {
             <span class="info-value">${ordersWithDues?.length || 0}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Shops with Manual Credit:</span>
-            <span class="info-value">${shopsWithManualCredit?.length || 0}</span>
+            <span class="info-label">Manual Credits:</span>
+            <span class="info-value">${manualCredits?.length || 0}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Grand Total Pending:</span>
@@ -540,9 +571,13 @@ const Shops: React.FC = () => {
           <thead>
             <tr>
               <th style="text-align: center;">Sr. No.</th>
+              <th>Date Added</th>
               <th>Shop/Client Name</th>
               <th>Route Name</th>
+              <th>Order Booker</th>
               <th style="text-align: right;">Credit Amount</th>
+              <th style="text-align: center;">Pending Days</th>
+              <th>Description</th>
               <th>Contact No.</th>
             </tr>
           </thead>
@@ -573,6 +608,12 @@ const Shops: React.FC = () => {
     } catch (error: any) {
       toast.error("Failed to generate report: " + error.message);
     }
+  };
+
+  const openManualCreditsForBooker = (bookerId: string, bookerName: string) => {
+    setManualCreditsBookerId(bookerId);
+    setManualCreditsBookerName(bookerName);
+    setShowManualCreditsModal(true);
   };
 
   const columns = useMemo(
@@ -1011,6 +1052,20 @@ const Shops: React.FC = () => {
                 <button onClick={() => setShowPrintCreditsModal(false)} className="btn-secondary flex-1">
                   Cancel
                 </button>
+                <button 
+                  onClick={() => {
+                    const selectedBooker = orderBookers.find(b => b.id === selectedBookerId);
+                    openManualCreditsForBooker(
+                      selectedBookerId === "all" ? "" : selectedBookerId,
+                      selectedBookerId === "all" ? "All Bookers" : selectedBooker?.full_name || ""
+                    );
+                    setShowPrintCreditsModal(false);
+                  }} 
+                  className="btn-secondary flex-1"
+                >
+                  <List className="mr-2 h-4 w-4" />
+                  View Credits
+                </button>
                 <button onClick={handlePrintPendingCredits} className="btn-primary flex-1" disabled={loadingBookers}>
                   <Printer className="mr-2 h-4 w-4" />
                   Print Report
@@ -1039,6 +1094,20 @@ const Shops: React.FC = () => {
             setSelectedShopForCredit(null);
           }}
           onSuccess={fetchData}
+        />
+      )}
+
+      {/* Manual Credits List Modal */}
+      {showManualCreditsModal && (
+        <ManualCreditsListModal
+          bookerId={manualCreditsBookerId}
+          bookerName={manualCreditsBookerName}
+          onClose={() => {
+            setShowManualCreditsModal(false);
+            setManualCreditsBookerId(undefined);
+            setManualCreditsBookerName(undefined);
+          }}
+          onRefresh={fetchData}
         />
       )}
 

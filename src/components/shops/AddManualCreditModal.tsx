@@ -1,12 +1,18 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { X, Loader2, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Shop {
   id: string;
   name: string;
   credit_balance: number;
+}
+
+interface OrderBooker {
+  id: string;
+  full_name: string;
 }
 
 interface AddManualCreditModalProps {
@@ -16,9 +22,35 @@ interface AddManualCreditModalProps {
 }
 
 export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManualCreditModalProps) => {
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [orderBookers, setOrderBookers] = useState<OrderBooker[]>([]);
+  const [loadingBookers, setLoadingBookers] = useState(true);
+  const [selectedBookerId, setSelectedBookerId] = useState<string>('');
+
+  useEffect(() => {
+    fetchOrderBookers();
+  }, []);
+
+  const fetchOrderBookers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('status', 'approved')
+        .order('full_name');
+
+      if (error) throw error;
+
+      setOrderBookers((data || []).map(p => ({ id: p.user_id, full_name: p.full_name })));
+    } catch (error: any) {
+      toast.error('Failed to load order bookers: ' + error.message);
+    } finally {
+      setLoadingBookers(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +63,11 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
 
     if (amountNum > 10000000) {
       toast.error('Amount cannot exceed Rs. 10,000,000');
+      return;
+    }
+
+    if (!selectedBookerId) {
+      toast.error('Please select an order booker');
       return;
     }
 
@@ -49,7 +86,7 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
       const newBalance = (shop.credit_balance || 0) + amountNum;
       const newManualCredit = currentManualCredit + amountNum;
       
-      const { error } = await supabase
+      const { error: shopError } = await supabase
         .from('shops')
         .update({ 
           credit_balance: newBalance,
@@ -57,9 +94,48 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
         })
         .eq('id', shop.id);
 
-      if (error) throw error;
+      if (shopError) throw shopError;
 
-      toast.success(`Rs. ${amountNum.toLocaleString()} credit added to ${shop.name}`);
+      // Save to manual_credits table with order booker info
+      const { error: creditError } = await supabase
+        .from('manual_credits')
+        .insert({
+          shop_id: shop.id,
+          booker_id: selectedBookerId,
+          amount: amountNum,
+          description: description || null,
+          status: 'pending',
+          created_by: user?.id
+        });
+
+      if (creditError) throw creditError;
+
+      // Update booker financials - add to credit pending
+      const { data: existingFinancials } = await supabase
+        .from('booker_financials')
+        .select('*')
+        .eq('booker_id', selectedBookerId)
+        .maybeSingle();
+
+      if (existingFinancials) {
+        await supabase
+          .from('booker_financials')
+          .update({
+            total_credit_pending: (existingFinancials.total_credit_pending || 0) + amountNum
+          })
+          .eq('booker_id', selectedBookerId);
+      } else {
+        await supabase
+          .from('booker_financials')
+          .insert({
+            booker_id: selectedBookerId,
+            total_credit_pending: amountNum,
+            total_cash_collected: 0
+          });
+      }
+
+      const selectedBooker = orderBookers.find(b => b.id === selectedBookerId);
+      toast.success(`Rs. ${amountNum.toLocaleString()} credit added to ${shop.name} (Booker: ${selectedBooker?.full_name})`);
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -68,6 +144,8 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
       setSubmitting(false);
     }
   };
+
+  const selectedBooker = orderBookers.find(b => b.id === selectedBookerId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
@@ -84,7 +162,7 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
 
         <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4">
           <p className="text-sm font-medium text-warning">⬆️ This adds credit to the shop's balance</p>
-          <p className="text-xs text-muted-foreground mt-1">Use this for pending payments from before the system was implemented</p>
+          <p className="text-xs text-muted-foreground mt-1">The credit will be tracked under the selected order booker</p>
         </div>
 
         <div className="bg-muted/50 rounded-lg p-3 mb-4">
@@ -93,6 +171,34 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Order Booker Selection */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Select Order Booker *</label>
+            {loadingBookers ? (
+              <div className="flex items-center gap-2 text-muted-foreground p-3">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading order bookers...
+              </div>
+            ) : (
+              <select
+                value={selectedBookerId}
+                onChange={(e) => setSelectedBookerId(e.target.value)}
+                className="input-field w-full"
+                disabled={submitting}
+              >
+                <option value="">Select order booker</option>
+                {orderBookers.map((booker) => (
+                  <option key={booker.id} value={booker.id}>
+                    {booker.full_name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              This credit will be added to the selected booker's pending credit total
+            </p>
+          </div>
+
           <div>
             <label className="mb-1.5 block text-sm font-medium">Credit Amount *</label>
             <div className="relative">
@@ -109,9 +215,6 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
                 disabled={submitting}
               />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              For pending payments from before the system was implemented
-            </p>
           </div>
 
           <div>
@@ -133,6 +236,11 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
               <p className="text-xl font-bold text-primary">
                 Rs. {((shop.credit_balance || 0) + parseFloat(amount)).toLocaleString()}
               </p>
+              {selectedBooker && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Will be tracked under {selectedBooker.full_name}'s pending credits
+                </p>
+              )}
             </div>
           )}
 
@@ -140,7 +248,7 @@ export const AddManualCreditModal = memo(({ shop, onClose, onSuccess }: AddManua
             <button type="button" onClick={onClose} className="btn-secondary" disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={submitting || !amount}>
+            <button type="submit" className="btn-primary" disabled={submitting || !amount || !selectedBookerId}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               <Plus className="h-4 w-4 mr-2" />
               Add Credit

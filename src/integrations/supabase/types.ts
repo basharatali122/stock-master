@@ -119,6 +119,53 @@ export type Database = {
           },
         ]
       }
+      manual_credits: {
+        Row: {
+          amount: number
+          booker_id: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          paid_at: string | null
+          shop_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          booker_id: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          paid_at?: string | null
+          shop_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          booker_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          paid_at?: string | null
+          shop_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_credits_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           discount_applied: number | null
