@@ -83,11 +83,10 @@ const Financials: React.FC = () => {
 
       if (finError) throw finError;
 
-      // Get pending manual credits grouped by booker
+      // Get ALL manual credits (both pending and paid) grouped by booker
       const { data: manualCredits, error: manualCreditsError } = await supabase
         .from('manual_credits')
-        .select('booker_id, amount, status')
-        .eq('status', 'pending');
+        .select('booker_id, amount, status');
 
       if (manualCreditsError) throw manualCreditsError;
 
@@ -116,11 +115,15 @@ const Financials: React.FC = () => {
         }
       });
 
-      // Add manual credits to credit given and pending amounts
+      // Add manual credits: all to credit_given, only pending to pending_amount
       manualCredits?.forEach(credit => {
         if (bookerStats[credit.booker_id]) {
+          // All manual credits count toward total credit given
           bookerStats[credit.booker_id].total_credit_given += credit.amount || 0;
-          bookerStats[credit.booker_id].pending_amount += credit.amount || 0;
+          // Only pending credits count toward pending amount
+          if (credit.status === 'pending') {
+            bookerStats[credit.booker_id].pending_amount += credit.amount || 0;
+          }
         }
       });
 

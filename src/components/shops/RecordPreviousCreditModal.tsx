@@ -74,15 +74,67 @@ export const RecordPreviousCreditModal = memo(({ shop, onClose, onSuccess }: Rec
 
     setSubmitting(true);
     try {
-      // Update shop credit balance (reduce it since payment is being recorded)
-      const newBalance = Math.max(0, (shop.credit_balance || 0) - amountNum);
+      // Get current shop data including manual_credit
+      const { data: shopData } = await supabase
+        .from('shops')
+        .select('credit_balance, manual_credit')
+        .eq('id', shop.id)
+        .single();
+
+      const currentCreditBalance = shopData?.credit_balance || 0;
+      const currentManualCredit = shopData?.manual_credit || 0;
+
+      // Update shop credit balance and manual_credit (reduce both since payment is being recorded)
+      const newBalance = Math.max(0, currentCreditBalance - amountNum);
+      const newManualCredit = Math.max(0, currentManualCredit - amountNum);
       
       const { error: shopError } = await supabase
         .from('shops')
-        .update({ credit_balance: newBalance })
+        .update({ 
+          credit_balance: newBalance,
+          manual_credit: newManualCredit
+        })
         .eq('id', shop.id);
 
       if (shopError) throw shopError;
+
+      // Mark corresponding manual credits as paid (up to the amount being paid)
+      // Get pending manual credits for this shop and booker
+      const { data: pendingCredits } = await supabase
+        .from('manual_credits')
+        .select('id, amount')
+        .eq('shop_id', shop.id)
+        .eq('booker_id', selectedBookerId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+
+      if (pendingCredits && pendingCredits.length > 0) {
+        let remainingPayment = amountNum;
+        const creditsToMark: string[] = [];
+
+        // Mark credits as paid starting from oldest
+        for (const credit of pendingCredits) {
+          if (remainingPayment <= 0) break;
+          if (credit.amount <= remainingPayment) {
+            creditsToMark.push(credit.id);
+            remainingPayment -= credit.amount;
+          } else {
+            // Partial payment - mark as paid anyway since we're recording a payment
+            creditsToMark.push(credit.id);
+            remainingPayment = 0;
+          }
+        }
+
+        if (creditsToMark.length > 0) {
+          await supabase
+            .from('manual_credits')
+            .update({
+              status: 'paid',
+              paid_at: new Date().toISOString()
+            })
+            .in('id', creditsToMark);
+        }
+      }
 
       // Update booker financials - add to cash collected
       const { data: existingFinancials } = await supabase
