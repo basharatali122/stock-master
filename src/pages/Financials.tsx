@@ -83,6 +83,14 @@ const Financials: React.FC = () => {
 
       if (finError) throw finError;
 
+      // Get pending manual credits grouped by booker
+      const { data: manualCredits, error: manualCreditsError } = await supabase
+        .from('manual_credits')
+        .select('booker_id, amount, status')
+        .eq('status', 'pending');
+
+      if (manualCreditsError) throw manualCreditsError;
+
       // Aggregate data
       const bookerStats: Record<string, BookerFinancials> = {};
 
@@ -108,6 +116,14 @@ const Financials: React.FC = () => {
         }
       });
 
+      // Add manual credits to credit given and pending amounts
+      manualCredits?.forEach(credit => {
+        if (bookerStats[credit.booker_id]) {
+          bookerStats[credit.booker_id].total_credit_given += credit.amount || 0;
+          bookerStats[credit.booker_id].pending_amount += credit.amount || 0;
+        }
+      });
+
       // Merge with booker_financials table data
       bookerFinData?.forEach(fin => {
         if (bookerStats[fin.booker_id]) {
@@ -127,6 +143,50 @@ const Financials: React.FC = () => {
 
   useEffect(() => {
     fetchFinancials();
+  }, []);
+
+  // Realtime subscription for booker_financials and manual_credits
+  useEffect(() => {
+    const financialsChannel = supabase
+      .channel('financials-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'booker_financials'
+        },
+        () => {
+          fetchFinancials();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'manual_credits'
+        },
+        () => {
+          fetchFinancials();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          fetchFinancials();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(financialsChannel);
+    };
   }, []);
 
   const handleEditFinancials = (booker: BookerFinancials) => {

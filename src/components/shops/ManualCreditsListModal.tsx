@@ -269,33 +269,33 @@ export const ManualCreditsListModal = memo(({ bookerId, bookerName, onClose, onR
   const totalPaid = paidCredits.reduce((sum, c) => sum + c.amount, 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50">
-      <div className="w-full max-w-4xl max-h-[90vh] rounded-xl bg-card p-6 shadow-elevated animate-scale-in overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Manual Credits</h2>
-            <p className="text-sm text-muted-foreground">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4">
+      <div className="w-full max-w-4xl max-h-[90vh] rounded-xl bg-card p-4 sm:p-6 shadow-elevated animate-scale-in overflow-hidden flex flex-col">
+        <div className="flex justify-between items-start gap-2 mb-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground truncate">Manual Credits</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
               {bookerName ? `For: ${bookerName}` : 'All manual credits'}
             </p>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground flex-shrink-0">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="bg-warning/10 rounded-lg p-3">
-            <p className="text-sm text-muted-foreground">Total Pending</p>
-            <p className="text-xl font-bold text-warning">Rs. {totalPending.toLocaleString()}</p>
+        {/* Summary Stats - Responsive Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-4">
+          <div className="bg-warning/10 rounded-lg p-2 sm:p-3 flex sm:block items-center justify-between">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Pending</p>
+            <p className="text-base sm:text-xl font-bold text-warning">Rs. {totalPending.toLocaleString()}</p>
           </div>
-          <div className="bg-success/10 rounded-lg p-3">
-            <p className="text-sm text-muted-foreground">Total Paid</p>
-            <p className="text-xl font-bold text-success">Rs. {totalPaid.toLocaleString()}</p>
+          <div className="bg-success/10 rounded-lg p-2 sm:p-3 flex sm:block items-center justify-between">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Paid</p>
+            <p className="text-base sm:text-xl font-bold text-success">Rs. {totalPaid.toLocaleString()}</p>
           </div>
-          <div className="bg-primary/10 rounded-lg p-3">
-            <p className="text-sm text-muted-foreground">Total Credits</p>
-            <p className="text-xl font-bold text-primary">{credits.length}</p>
+          <div className="bg-primary/10 rounded-lg p-2 sm:p-3 flex sm:block items-center justify-between">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Credits</p>
+            <p className="text-base sm:text-xl font-bold text-primary">{credits.length}</p>
           </div>
         </div>
 
@@ -308,8 +308,66 @@ export const ManualCreditsListModal = memo(({ bookerId, bookerName, onClose, onR
             No manual credits found
           </div>
         ) : (
-          <div className="overflow-auto flex-1">
-            <table className="w-full">
+          <div className="overflow-auto flex-1 -mx-4 sm:mx-0">
+            {/* Mobile Card View */}
+            <div className="block sm:hidden space-y-3 px-4">
+              {credits.map((credit) => (
+                <div key={credit.id} className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{credit.shops?.name || 'Unknown'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(credit.created_at).toLocaleDateString()}
+                        {!bookerId && ` • ${credit.booker_name}`}
+                      </p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+                      credit.status === 'paid' 
+                        ? 'bg-success/10 text-success' 
+                        : 'bg-warning/10 text-warning'
+                    }`}>
+                      {credit.status === 'paid' ? 'Paid' : 'Pending'}
+                    </span>
+                  </div>
+                  {credit.description && (
+                    <p className="text-xs text-muted-foreground">{credit.description}</p>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t border-border">
+                    <span className="font-bold text-sm">Rs. {credit.amount.toLocaleString()}</span>
+                    <div className="flex gap-1">
+                      {credit.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleMarkAsPaid(credit)}
+                            className="rounded-lg p-2 hover:bg-success/10"
+                            title="Mark as Paid"
+                          >
+                            <CheckCircle className="h-4 w-4 text-success" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(credit)}
+                            className="rounded-lg p-2 hover:bg-muted"
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => handleDelete(credit)}
+                        className="rounded-lg p-2 hover:bg-destructive/10"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <table className="w-full hidden sm:table">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Date</th>
