@@ -144,6 +144,9 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       // Update order total if any discount was given
       const hasDiscount = totalDiscountGiven > 0;
       if (priceChanges.length > 0 || hasDiscount) {
+        // Calculate the credit balance reduction (discount amount)
+        const creditReduction = order.total_amount - finalTotal;
+
         const { error: orderError } = await supabase
           .from('orders')
           .update({
@@ -152,6 +155,24 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
           .eq('id', order.id);
 
         if (orderError) throw orderError;
+
+        // IMPORTANT: Also reduce shop's credit balance by the discount amount
+        // This ensures the shop only owes the discounted amount, not the original
+        if (creditReduction > 0) {
+          const { data: shop } = await supabase
+            .from('shops')
+            .select('credit_balance')
+            .eq('id', order.shop_id)
+            .single();
+
+          if (shop) {
+            const newCreditBalance = Math.max(0, (shop.credit_balance || 0) - creditReduction);
+            await supabase
+              .from('shops')
+              .update({ credit_balance: newCreditBalance })
+              .eq('id', order.shop_id);
+          }
+        }
       }
 
       // Save discount history if any discount was given

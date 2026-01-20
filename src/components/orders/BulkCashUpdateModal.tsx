@@ -78,13 +78,18 @@ export const BulkCashUpdateModal = memo(({ orders, onClose, onSuccess }: BulkCas
     try {
       const selectedOrdersList = unpaidOrders.filter(o => selectedOrders.has(o.id));
       
+      // Group orders by shop to batch credit balance updates
+      const shopCreditUpdates = new Map<string, number>();
+      
       // Update each order - set as fully paid and delivered
       for (const order of selectedOrdersList) {
-        const pendingAmount = order.total_amount - (order.paid_amount || 0);
+        const previousPaid = order.paid_amount || 0;
+        const pendingAmount = order.total_amount - previousPaid;
         
         // If pending amount is less than 1 PKR, ignore it (consider fully paid)
         // Otherwise, set paid_amount to total_amount
-        const finalPaidAmount = pendingAmount < 1 ? order.paid_amount : order.total_amount;
+        const finalPaidAmount = pendingAmount < 1 ? previousPaid : order.total_amount;
+        const creditChange = finalPaidAmount - previousPaid;
         
         const { error } = await supabase
           .from('orders')
@@ -92,10 +97,35 @@ export const BulkCashUpdateModal = memo(({ orders, onClose, onSuccess }: BulkCas
             paid_amount: finalPaidAmount,
             payment_status: 'paid',
             status: 'delivered', // Auto-set to delivered when cash paid
+            payment_received_at: new Date().toISOString(), // Add payment date
+            payment_method: 'cash'
           })
           .eq('id', order.id);
 
         if (error) throw error;
+
+        // Track credit changes per shop
+        if (creditChange > 0) {
+          const currentChange = shopCreditUpdates.get(order.shop_id) || 0;
+          shopCreditUpdates.set(order.shop_id, currentChange + creditChange);
+        }
+      }
+
+      // Update shop credit balances
+      for (const [shopId, creditChange] of shopCreditUpdates.entries()) {
+        const { data: shop } = await supabase
+          .from('shops')
+          .select('credit_balance')
+          .eq('id', shopId)
+          .single();
+
+        if (shop) {
+          const newCreditBalance = Math.max(0, (shop.credit_balance || 0) - creditChange);
+          await supabase
+            .from('shops')
+            .update({ credit_balance: newCreditBalance })
+            .eq('id', shopId);
+        }
       }
 
       toast.success(`${selectedOrdersList.length} orders marked as paid and delivered`);
