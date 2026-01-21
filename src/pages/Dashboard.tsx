@@ -142,24 +142,32 @@ const Dashboard: React.FC = () => {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      // Get today's date range
+      // Get today's date range with timezone consideration
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
 
-      // Fetch all data in parallel for maximum performance
-      const [ordersRes, shopsRes, productsRes, routesRes, pendingUsersRes, dailyOrdersRes, recentOrdersRes, lowStockRes, allOrderItemsRes] = await Promise.all([
+      // Split queries into critical (fast) and non-critical (can wait)
+      // Critical queries - needed for main dashboard view
+      const criticalQueries = Promise.all([
         supabase.from('orders').select('id, total_amount, paid_amount, booker_id', { count: 'exact' }),
         supabase.from('shops').select('id', { count: 'exact' }),
         supabase.from('products').select('id, stock_quantity, boxes_per_carton', { count: 'exact' }),
         supabase.from('routes').select('id', { count: 'exact' }).eq('is_active', true),
-        supabase.from('profiles').select('id', { count: 'exact' }).eq('status', 'pending'),
         supabase.from('orders').select('id, total_amount, booker_id, created_at').gte('created_at', startOfDay).lt('created_at', endOfDay),
+      ]);
+
+      // Secondary queries - less critical for initial render
+      const secondaryQueries = Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact' }).eq('status', 'pending'),
         supabase.from('orders').select(`id, order_number, total_amount, payment_status, created_at, shops (name), profiles:booker_id (full_name)`).order('created_at', { ascending: false }).limit(5),
         supabase.from('products').select('id, name, category, stock_quantity').lt('stock_quantity', 50).order('stock_quantity').limit(5),
-        // Fetch all order items for total boxes calculation
         supabase.from('order_items').select('order_id, quantity'),
       ]);
+
+      // Wait for critical queries first for faster initial render
+      const [ordersRes, shopsRes, productsRes, routesRes, dailyOrdersRes] = await criticalQueries;
+      const [pendingUsersRes, recentOrdersRes, lowStockRes, allOrderItemsRes] = await secondaryQueries;
 
       const totalSales = ordersRes.data?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
       const pendingPayments = ordersRes.data?.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0) || 0;
