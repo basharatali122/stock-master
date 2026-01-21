@@ -437,34 +437,36 @@ const Dashboard: React.FC = () => {
       {/* Booking & Supply Rate */}
       {isAdmin && <BookingSupplyRate />}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Sales"
-          value={formatCurrency(stats.totalSales)}
-          icon={DollarSign}
-          trend={{ value: 12.5, isPositive: true }}
-          variant="primary"
-        />
-        <StatCard
-          title="Total Orders"
-          value={stats.totalOrders}
-          icon={ShoppingCart}
-          trend={{ value: 8.2, isPositive: true }}
-          variant="accent"
-        />
-        <StatCard
-          title="Active Shops"
-          value={stats.totalShops}
-          icon={Store}
-          trend={{ value: 3.1, isPositive: true }}
-        />
-        <StatCard
-          title="Products"
-          value={stats.totalProducts}
-          icon={Package}
-        />
-      </div>
+      {/* Stats Grid - Admin only sees total stats */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Total Sales"
+            value={formatCurrency(stats.totalSales)}
+            icon={DollarSign}
+            trend={{ value: 12.5, isPositive: true }}
+            variant="primary"
+          />
+          <StatCard
+            title="Total Orders"
+            value={stats.totalOrders}
+            icon={ShoppingCart}
+            trend={{ value: 8.2, isPositive: true }}
+            variant="accent"
+          />
+          <StatCard
+            title="Active Shops"
+            value={stats.totalShops}
+            icon={Store}
+            trend={{ value: 3.1, isPositive: true }}
+          />
+          <StatCard
+            title="Products"
+            value={stats.totalProducts}
+            icon={Package}
+          />
+        </div>
+      )}
 
       {/* Secondary Stats */}
       {isAdmin && (

@@ -62,6 +62,12 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const today = days[new Date().getDay()];
 
+      // Get today's date range for order bookers (they only see today's orders)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
       // Fetch orders query
       let ordersQuery = supabase
         .from('orders')
@@ -74,7 +80,11 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
         .limit(500);
 
       if (!isAdmin && userId) {
-        ordersQuery = ordersQuery.eq('booker_id', userId);
+        // Order bookers can only see today's orders
+        ordersQuery = ordersQuery
+          .eq('booker_id', userId)
+          .gte('created_at', todayStart.toISOString())
+          .lte('created_at', todayEnd.toISOString());
       }
 
       // Core queries for all users
