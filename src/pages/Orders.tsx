@@ -211,13 +211,14 @@ const Orders: React.FC = () => {
     return filtered;
   }, [filteredOrders, routeFilter, bookerFilter, datePreset, customDate, isAdmin]);
 
-  // Route-specific stats (for admin)
+  // Route-specific stats (for admin only)
   const routeStats = useMemo(() => {
+    if (!isAdmin) return { totalSales: 0, totalPaid: 0, totalCredit: 0, totalOrders: 0 };
     const totalSales = routeFilteredOrders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
     const totalPaid = routeFilteredOrders.reduce((acc, order) => acc + (order.paid_amount || 0), 0);
     const totalCredit = totalSales - totalPaid;
     return { totalSales, totalPaid, totalCredit, totalOrders: routeFilteredOrders.length };
-  }, [routeFilteredOrders]);
+  }, [routeFilteredOrders, isAdmin]);
 
   // Daily sales for order bookers (only today's orders)
   const dailySales = useMemo(() => {
