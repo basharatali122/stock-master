@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -14,40 +14,74 @@ import {
   LogOut,
   Map,
   TrendingUp,
+  LucideIcon,
 } from 'lucide-react';
 
-const Sidebar: React.FC = () => {
+interface NavItem {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+}
+
+// Memoized nav link item
+const SidebarLink = memo(function SidebarLink({ 
+  to, 
+  icon: Icon, 
+  label 
+}: NavItem) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `nav-link ${isActive ? 'nav-link-active' : ''}`
+      }
+    >
+      <Icon className="h-5 w-5" />
+      <span>{label}</span>
+    </NavLink>
+  );
+});
+
+// Static link definitions (outside component to avoid recreation)
+const ADMIN_LINKS: NavItem[] = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/cities', icon: MapPin, label: 'Cities' },
+  { to: '/routes', icon: Map, label: 'Routes' },
+  { to: '/shops', icon: Store, label: 'Shops' },
+  { to: '/products', icon: Package, label: 'Products' },
+  { to: '/orders', icon: ShoppingCart, label: 'Orders' },
+  { to: '/returns', icon: RotateCcw, label: 'Returns' },
+  { to: '/users', icon: Users, label: 'Users' },
+  { to: '/financials', icon: DollarSign, label: 'Financials' },
+  { to: '/reports', icon: TrendingUp, label: 'Reports' },
+];
+
+const BOOKER_LINKS: NavItem[] = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/my-routes', icon: Map, label: 'My Routes' },
+  { to: '/shops', icon: Store, label: 'Shops' },
+  { to: '/products', icon: Package, label: 'Products' },
+  { to: '/orders', icon: ShoppingCart, label: 'Orders' },
+  { to: '/returns', icon: RotateCcw, label: 'Returns' },
+];
+
+const Sidebar: React.FC = memo(function Sidebar() {
   const { profile, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await logout();
     navigate('/auth');
-  };
+  }, [logout, navigate]);
 
-  const adminLinks = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/cities', icon: MapPin, label: 'Cities' },
-    { to: '/routes', icon: Map, label: 'Routes' },
-    { to: '/shops', icon: Store, label: 'Shops' },
-    { to: '/products', icon: Package, label: 'Products' },
-    { to: '/orders', icon: ShoppingCart, label: 'Orders' },
-    { to: '/returns', icon: RotateCcw, label: 'Returns' },
-    { to: '/users', icon: Users, label: 'Users' },
-    { to: '/financials', icon: DollarSign, label: 'Financials' },
-    { to: '/reports', icon: TrendingUp, label: 'Reports' },
-  ];
+  // Memoize links selection
+  const links = useMemo(() => isAdmin ? ADMIN_LINKS : BOOKER_LINKS, [isAdmin]);
 
-  const bookerLinks = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/my-routes', icon: Map, label: 'My Routes' },
-    { to: '/shops', icon: Store, label: 'Shops' },
-    { to: '/products', icon: Package, label: 'Products' },
-    { to: '/orders', icon: ShoppingCart, label: 'Orders' },
-    { to: '/returns', icon: RotateCcw, label: 'Returns' },
-  ];
-
-  const links = isAdmin ? adminLinks : bookerLinks;
+  // Memoize user initial
+  const userInitial = useMemo(() => 
+    profile?.full_name?.charAt(0)?.toUpperCase() || 'U', 
+    [profile?.full_name]
+  );
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar">
@@ -66,16 +100,7 @@ const Sidebar: React.FC = () => {
         {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto p-4 scrollbar-thin">
           {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className={({ isActive }) =>
-                `nav-link ${isActive ? 'nav-link-active' : ''}`
-              }
-            >
-              <link.icon className="h-5 w-5" />
-              <span>{link.label}</span>
-            </NavLink>
+            <SidebarLink key={link.to} {...link} />
           ))}
         </nav>
 
@@ -83,7 +108,7 @@ const Sidebar: React.FC = () => {
         <div className="border-t border-sidebar-border p-4">
           <div className="mb-3 flex items-center gap-3 px-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
-              {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+              {userInitial}
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="truncate text-sm font-medium text-sidebar-foreground">
@@ -115,6 +140,6 @@ const Sidebar: React.FC = () => {
       </div>
     </aside>
   );
-};
+});
 
 export default Sidebar;

@@ -68,16 +68,16 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
-      // Fetch orders query
+      // Build orders query with optimized field selection
       let ordersQuery = supabase
         .from('orders')
         .select(`
-          *,
-          shops(name, address, phone, routes(name)),
-          order_items(*, products(name, product_code))
+          id, order_number, shop_id, booker_id, total_amount, paid_amount, status, payment_status, created_at,
+          shops!inner(name, address, phone, routes(name)),
+          order_items(id, product_id, quantity, unit_price, discount_applied, total_price, products(name, product_code))
         `)
         .order('created_at', { ascending: false })
-        .limit(500);
+        .limit(isAdmin ? 500 : 100); // Reduce limit for non-admin
 
       if (!isAdmin && userId) {
         // Order bookers can only see today's orders
@@ -87,22 +87,25 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
           .lte('created_at', todayEnd.toISOString());
       }
 
-      // Core queries for all users
+      // Core queries - run in parallel for maximum performance
       const [ordersResult, shopsResult, productsResult] = await Promise.all([
         ordersQuery,
-        // Fetch shops from active routes that have today as an active day (for order bookers)
+        // Fetch shops from active routes that have today as an active day
         supabase
           .from('shops')
           .select('id, name, address, shop_code, route_id, credit_balance, routes!inner(name, is_active, active_days)')
           .eq('routes.is_active', true)
           .contains('routes.active_days', [today])
-          .order('name'),
-        // Fetch products
+          .order('name')
+          .limit(500),
+        // Fetch only active products with needed fields
         supabase
           .from('products')
           .select('id, name, product_code, price, discount_percentage, stock_quantity, boxes_per_carton')
           .eq('is_active', true)
+          .gt('stock_quantity', 0) // Only products in stock
           .order('name')
+          .limit(500)
       ]);
 
       if (ordersResult.error) throw ordersResult.error;
@@ -313,17 +316,32 @@ export function useOrderFilters(orders: Order[]) {
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('All');
 
+  // Memoize search lowercase to avoid recalculating
+  const searchLower = useMemo(() => searchQuery.toLowerCase(), [searchQuery]);
+
   const filteredOrders = useMemo(() => {
-    const searchLower = searchQuery.toLowerCase();
+    // Early return if no filters
+    if (!searchQuery && paymentFilter === 'All') {
+      return orders;
+    }
+
     return orders.filter((order) => {
-      const matchesSearch = !searchQuery ||
-        order.order_number.toLowerCase().includes(searchLower) ||
-        order.shops?.name?.toLowerCase().includes(searchLower);
-      const matchesPayment =
-        paymentFilter === 'All' || order.payment_status?.toLowerCase() === paymentFilter.toLowerCase();
-      return matchesSearch && matchesPayment;
+      // Payment filter check first (faster)
+      if (paymentFilter !== 'All' && order.payment_status?.toLowerCase() !== paymentFilter.toLowerCase()) {
+        return false;
+      }
+      
+      // Search filter (more expensive)
+      if (searchQuery) {
+        const matchesSearch = 
+          order.order_number.toLowerCase().includes(searchLower) ||
+          order.shops?.name?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+      
+      return true;
     });
-  }, [orders, searchQuery, paymentFilter]);
+  }, [orders, searchLower, paymentFilter, searchQuery]);
 
   const stats = useMemo(() => {
     const totalSales = orders.reduce((acc, order) => acc + (order.total_amount || 0), 0);
