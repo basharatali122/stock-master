@@ -47,7 +47,13 @@ interface Product {
   boxes_per_carton: number;
 }
 
-export function useOrders(isAdmin: boolean, userId: string | undefined) {
+// Date range for fetching orders
+interface DateRange {
+  start?: Date;
+  end?: Date;
+}
+
+export function useOrders(isAdmin: boolean, userId: string | undefined, dateRange?: DateRange) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [allShops, setAllShops] = useState<Shop[]>([]); // All shops for admin
@@ -76,15 +82,38 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
           shops!inner(name, address, phone, routes(name)),
           order_items(id, product_id, quantity, unit_price, discount_applied, total_price, products(name, product_code))
         `)
-        .order('created_at', { ascending: false })
-        .limit(isAdmin ? 500 : 100); // Reduce limit for non-admin
+        .order('created_at', { ascending: false });
 
       if (!isAdmin && userId) {
         // Order bookers can only see today's orders
         ordersQuery = ordersQuery
           .eq('booker_id', userId)
           .gte('created_at', todayStart.toISOString())
-          .lte('created_at', todayEnd.toISOString());
+          .lte('created_at', todayEnd.toISOString())
+          .limit(100);
+      } else if (isAdmin) {
+        // Admin: if date range is provided, use it (no limit for targeted queries)
+        // Otherwise, fetch recent orders with a higher limit
+        if (dateRange?.start && dateRange?.end) {
+          ordersQuery = ordersQuery
+            .gte('created_at', dateRange.start.toISOString())
+            .lte('created_at', dateRange.end.toISOString());
+        } else if (dateRange?.start) {
+          // Single date - entire day
+          const dayEnd = new Date(dateRange.start);
+          dayEnd.setHours(23, 59, 59, 999);
+          ordersQuery = ordersQuery
+            .gte('created_at', dateRange.start.toISOString())
+            .lte('created_at', dayEnd.toISOString());
+        } else {
+          // Default: last 30 days for admin with higher limit
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          thirtyDaysAgo.setHours(0, 0, 0, 0);
+          ordersQuery = ordersQuery
+            .gte('created_at', thirtyDaysAgo.toISOString())
+            .limit(1000);
+        }
       }
 
       // Core queries - run in parallel for maximum performance
@@ -166,7 +195,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined) {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, userId]);
+  }, [isAdmin, userId, dateRange?.start?.getTime(), dateRange?.end?.getTime()]);
 
   // Smart update for realtime changes - orders
   const handleRealtimeUpdate = useCallback((payload: any) => {
