@@ -36,6 +36,10 @@ interface Shop {
   routes?: { name: string };
 }
 
+interface ShopWithPendingCredit extends Shop {
+  actualPendingCredit?: number;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -297,6 +301,56 @@ export const NewOrderModal = memo(({
   const [shopSearch, setShopSearch] = useState('');
   const [showShopDropdown, setShowShopDropdown] = useState(false);
   const shopSearchRef = useRef<HTMLDivElement>(null);
+  const [shopPendingCredits, setShopPendingCredits] = useState<Record<string, number>>({});
+  const [loadingShopCredits, setLoadingShopCredits] = useState(false);
+
+  // Fetch actual pending credits for all shops
+  useEffect(() => {
+    const fetchAllShopCredits = async () => {
+      if (shops.length === 0) return;
+      
+      setLoadingShopCredits(true);
+      try {
+        // Fetch all orders with pending payments
+        const { data: pendingOrders, error } = await supabase
+          .from('orders')
+          .select('shop_id, total_amount, paid_amount')
+          .in('payment_status', ['credit', 'partial', 'pending'])
+          .neq('status', 'cancelled');
+
+        if (error) throw error;
+
+        // Calculate pending credit per shop
+        const creditsByShop: Record<string, number> = {};
+        (pendingOrders || []).forEach(order => {
+          const pending = order.total_amount - (order.paid_amount || 0);
+          if (pending > 0) {
+            creditsByShop[order.shop_id] = (creditsByShop[order.shop_id] || 0) + pending;
+          }
+        });
+
+        // Also fetch manual credits that are pending
+        const { data: manualCredits, error: mcError } = await supabase
+          .from('manual_credits')
+          .select('shop_id, amount')
+          .eq('status', 'pending');
+
+        if (!mcError && manualCredits) {
+          manualCredits.forEach(mc => {
+            creditsByShop[mc.shop_id] = (creditsByShop[mc.shop_id] || 0) + mc.amount;
+          });
+        }
+
+        setShopPendingCredits(creditsByShop);
+      } catch (error) {
+        console.error('Error fetching shop credits:', error);
+      } finally {
+        setLoadingShopCredits(false);
+      }
+    };
+
+    fetchAllShopCredits();
+  }, [shops]);
 
   // Filter products based on search
   const filteredProducts = useMemo(() => {
@@ -503,9 +557,9 @@ export const NewOrderModal = memo(({
                         <span className="text-xs sm:text-sm font-medium">{shop.name}</span>
                         <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground mt-0.5">
                           <span>{shop.routes?.name}</span>
-                          {shop.credit_balance > 0 && (
+                          {(shopPendingCredits[shop.id] || 0) > 0 && (
                             <span className="text-warning font-medium">
-                              Credit: Rs. {shop.credit_balance.toLocaleString()}
+                              Credit: Rs. {(shopPendingCredits[shop.id] || 0).toLocaleString()}
                             </span>
                           )}
                         </div>
