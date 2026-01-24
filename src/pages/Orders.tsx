@@ -133,7 +133,32 @@ OrderActions.displayName = 'OrderActions';
 
 const Orders: React.FC = () => {
   const { isAdmin, user } = useAuth();
-  const { orders, shops, allShops, products, bookers, loading, refetch } = useOrders(isAdmin, user?.id);
+  
+  // Date filter state - moved up to be used in hook
+  const [datePreset, setDatePreset] = useState('all');
+  const [customDate, setCustomDate] = useState('');
+  
+  // Compute date range for API call
+  const dateRange = useMemo(() => {
+    if (!isAdmin || datePreset === 'all') return undefined;
+    
+    let targetDate: Date;
+    if (datePreset === 'today') {
+      targetDate = new Date();
+    } else if (datePreset === 'yesterday') {
+      targetDate = subDays(new Date(), 1);
+    } else if (datePreset === 'custom' && customDate) {
+      targetDate = new Date(customDate);
+    } else {
+      return undefined;
+    }
+    
+    const start = startOfDay(targetDate);
+    const end = endOfDay(targetDate);
+    return { start, end };
+  }, [isAdmin, datePreset, customDate]);
+  
+  const { orders, shops, allShops, products, bookers, loading, refetch } = useOrders(isAdmin, user?.id, dateRange);
   const {
     searchQuery,
     setSearchQuery,
@@ -149,8 +174,6 @@ const Orders: React.FC = () => {
   // Route filter state
   const [routeFilter, setRouteFilter] = useState('All');
   const [bookerFilter, setBookerFilter] = useState('All');
-  const [datePreset, setDatePreset] = useState('all');
-  const [customDate, setCustomDate] = useState('');
   const [routes, setRoutes] = useState<{ id: string; name: string; assigned_booker_id: string | null }[]>([]);
   const [showRoutePrintModal, setShowRoutePrintModal] = useState(false);
   const [showRouteBillsModal, setShowRouteBillsModal] = useState(false);
@@ -171,7 +194,7 @@ const Orders: React.FC = () => {
     }
   }, [isAdmin]);
 
-  // Filter orders by route, booker, and date
+  // Filter orders by route and booker (date filtering is now done at API level)
   const routeFilteredOrders = useMemo(() => {
     let filtered = filteredOrders;
     
@@ -185,31 +208,8 @@ const Orders: React.FC = () => {
       filtered = filtered.filter(order => order.booker_name === bookerFilter);
     }
     
-    // Date filter
-    if (datePreset !== 'all') {
-      let targetDate: Date;
-      
-      if (datePreset === 'today') {
-        targetDate = new Date();
-      } else if (datePreset === 'yesterday') {
-        targetDate = subDays(new Date(), 1);
-      } else if (datePreset === 'custom' && customDate) {
-        targetDate = new Date(customDate);
-      } else {
-        return filtered;
-      }
-      
-      const dayStart = startOfDay(targetDate);
-      const dayEnd = endOfDay(targetDate);
-      
-      filtered = filtered.filter(order => {
-        const orderDate = new Date(order.created_at);
-        return orderDate >= dayStart && orderDate <= dayEnd;
-      });
-    }
-    
     return filtered;
-  }, [filteredOrders, routeFilter, bookerFilter, datePreset, customDate, isAdmin]);
+  }, [filteredOrders, routeFilter, bookerFilter, isAdmin]);
 
   // Route-specific stats (for admin only)
   const routeStats = useMemo(() => {
