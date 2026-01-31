@@ -9,7 +9,7 @@ interface OrderItem {
   unit_price: number;
   discount_applied: number;
   total_price: number;
-  products?: { name: string; product_code: string | null };
+  products?: { name: string; product_code: string | null; price?: number };
 }
 
 interface Order {
@@ -50,12 +50,17 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
       
       const itemsHtml = order.order_items?.map(item => {
         const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
+        // Calculate effective discount percentage from the original product price
+        const originalProductPrice = item.products?.price || item.unit_price;
+        const effectiveDiscountPercent = originalProductPrice > 0 && item.unit_price < originalProductPrice
+          ? Math.round(((originalProductPrice - item.unit_price) / originalProductPrice) * 100)
+          : (item.discount_applied || 0);
         return `
           <tr>
             <td style="text-align: left;">${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
             <td style="text-align: center;">${safeText(item.quantity)}</td>
             <td style="text-align: right;">${formatCurrencyForPrint(item.unit_price)}</td>
-            <td style="text-align: center;">${safeText(item.discount_applied || 0)}%</td>
+            <td style="text-align: center;">${safeText(effectiveDiscountPercent)}%</td>
             <td style="text-align: right;">${formatCurrencyForPrint(item.total_price)}</td>
           </tr>
         `;
