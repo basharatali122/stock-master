@@ -11,7 +11,7 @@ interface OrderItem {
   unit_price: number;
   discount_applied: number;
   total_price: number;
-  products?: { name: string; product_code: string | null };
+  products?: { name: string; product_code: string | null; price?: number };
 }
 
 interface Order {
@@ -115,26 +115,35 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       if (!user) throw new Error('Not authenticated');
 
       // Check if any prices have changed
-      const priceChanges: { id: string; unit_price: number; total_price: number }[] = [];
+      const priceChanges: { id: string; product_id: string; unit_price: number; total_price: number; discount_applied: number }[] = [];
       
       for (const item of order.order_items || []) {
         const adjustment = adjustedItems[item.id];
         if (adjustment && adjustment.adjustedPrice !== item.unit_price) {
+          // Calculate discount percentage based on original product price
+          const originalProductPrice = item.products?.price || item.unit_price;
+          const discountPercent = originalProductPrice > 0 
+            ? Math.round(((originalProductPrice - adjustment.adjustedPrice) / originalProductPrice) * 100)
+            : 0;
+          
           priceChanges.push({
             id: item.id,
+            product_id: item.product_id,
             unit_price: adjustment.adjustedPrice,
             total_price: adjustment.adjustedTotal,
+            discount_applied: Math.max(0, discountPercent), // Ensure non-negative
           });
         }
       }
 
-      // Update each order item with new prices
+      // Update each order item with new prices and discount percentage
       for (const change of priceChanges) {
         const { error } = await supabase
           .from('order_items')
           .update({
             unit_price: change.unit_price,
             total_price: change.total_price,
+            discount_applied: change.discount_applied,
           })
           .eq('id', change.id);
 
@@ -247,13 +256,20 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       const displayTotal = adjustment?.adjustedTotal ?? item.total_price;
       const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
       
+      // Calculate effective discount percentage from price difference
+      // Use the original PRODUCT price (from products table), not the stored unit_price
+      const originalProductPrice = item.products?.price || item.unit_price;
+      const effectiveDiscountPercent = originalProductPrice > 0 && displayPrice < originalProductPrice
+        ? Math.round(((originalProductPrice - displayPrice) / originalProductPrice) * 100)
+        : (item.discount_applied || 0);
+      
       // Show the discounted price on the bill (not the original price)
       return `
       <tr>
         <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
         <td>${safeText(item.quantity)}</td>
         <td>${formatCurrencyForPrint(displayPrice)}</td>
-        <td>${safeText(item.discount_applied || 0)}%</td>
+        <td>${safeText(effectiveDiscountPercent)}%</td>
         <td>${formatCurrencyForPrint(displayTotal)}</td>
       </tr>
     `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
