@@ -57,6 +57,8 @@ const Shops: React.FC = () => {
   const [showManualCreditsModal, setShowManualCreditsModal] = useState(false);
   const [manualCreditsBookerId, setManualCreditsBookerId] = useState<string | undefined>(undefined);
   const [manualCreditsBookerName, setManualCreditsBookerName] = useState<string | undefined>(undefined);
+  // Real-time pending credits calculated from orders and manual_credits
+  const [shopPendingCredits, setShopPendingCredits] = useState<Record<string, number>>({});
   const [formData, setFormData] = useState({
     name: "",
     owner_name: "",
@@ -123,6 +125,31 @@ const Shops: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // Fetch real-time pending credits using database function
+  const fetchPendingCredits = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_shop_pending_credits');
+      if (error) throw error;
+
+      // Aggregate results (function returns separate rows for orders and manual credits)
+      const creditsByShop: Record<string, number> = {};
+      (data || []).forEach((row: { shop_id: string; pending_credit: number }) => {
+        creditsByShop[row.shop_id] = (creditsByShop[row.shop_id] || 0) + Number(row.pending_credit);
+      });
+
+      setShopPendingCredits(creditsByShop);
+    } catch (error: any) {
+      console.error("Failed to fetch pending credits:", error.message);
+    }
+  }, []);
+
+  // Fetch pending credits on mount and when shops change
+  useEffect(() => {
+    if (shops.length > 0) {
+      fetchPendingCredits();
+    }
+  }, [shops.length, fetchPendingCredits]);
+
   // Realtime subscription for shops (credit balance updates)
   useEffect(() => {
     const shopsChannel = supabase
@@ -151,10 +178,45 @@ const Shops: React.FC = () => {
       )
       .subscribe();
 
+    // Also subscribe to orders changes to update pending credits in real-time
+    const ordersChannel = supabase
+      .channel('orders-realtime-credits')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          // Refetch pending credits when orders change
+          fetchPendingCredits();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to manual_credits changes too
+    const manualCreditsChannel = supabase
+      .channel('manual-credits-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'manual_credits'
+        },
+        () => {
+          fetchPendingCredits();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(shopsChannel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(manualCreditsChannel);
     };
-  }, [fetchData]);
+  }, [fetchData, fetchPendingCredits]);
 
   const handleAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,14 +372,15 @@ const Shops: React.FC = () => {
     let zeroCredit = 0;
 
     shops.forEach((shop) => {
-      const balance = shop.credit_balance || 0;
+      // Use real-time pending credits from database function, not stale credit_balance
+      const balance = shopPendingCredits[shop.id] || 0;
       total += balance;
       if (balance > 0) withCredit++;
       else zeroCredit++;
     });
 
     return { totalCredit: total, shopsWithCredit: withCredit, shopsWithZeroCredit: zeroCredit };
-  }, [shops]);
+  }, [shops, shopPendingCredits]);
 
   const fetchOrderBookers = async () => {
     setLoadingBookers(true);
@@ -662,11 +725,15 @@ const Shops: React.FC = () => {
       {
         key: "credit_balance",
         header: "Credit Balance",
-        render: (item: Shop) => (
-          <span className={(item.credit_balance || 0) > 0 ? "text-warning font-medium" : ""}>
-            {formatCurrency(item.credit_balance || 0)}
-          </span>
-        ),
+        render: (item: Shop) => {
+          // Use real-time pending credits from database function
+          const pendingCredit = shopPendingCredits[item.id] || 0;
+          return (
+            <span className={pendingCredit > 0 ? "text-warning font-medium" : ""}>
+              {formatCurrency(pendingCredit)}
+            </span>
+          );
+        },
       },
       {
         key: "actions",
@@ -712,7 +779,7 @@ const Shops: React.FC = () => {
         ),
       },
     ],
-    [isAdmin, formatCurrency],
+    [isAdmin, formatCurrency, shopPendingCredits],
   );
 
   if (loading) {
