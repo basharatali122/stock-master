@@ -304,42 +304,24 @@ export const NewOrderModal = memo(({
   const [shopPendingCredits, setShopPendingCredits] = useState<Record<string, number>>({});
   const [loadingShopCredits, setLoadingShopCredits] = useState(false);
 
-  // Fetch actual pending credits for all shops
+  // Fetch actual pending credits for all shops using database function
+  // This function bypasses RLS to get accurate totals from all bookers
   useEffect(() => {
     const fetchAllShopCredits = async () => {
       if (shops.length === 0) return;
       
       setLoadingShopCredits(true);
       try {
-        // Fetch all orders with pending payments
-        const { data: pendingOrders, error } = await supabase
-          .from('orders')
-          .select('shop_id, total_amount, paid_amount')
-          .in('payment_status', ['credit', 'partial', 'pending'])
-          .neq('status', 'cancelled');
+        // Use the database function that calculates pending credits across all bookers
+        const { data, error } = await supabase.rpc('get_shop_pending_credits');
 
         if (error) throw error;
 
-        // Calculate pending credit per shop
+        // Aggregate results (function returns separate rows for orders and manual credits)
         const creditsByShop: Record<string, number> = {};
-        (pendingOrders || []).forEach(order => {
-          const pending = order.total_amount - (order.paid_amount || 0);
-          if (pending > 0) {
-            creditsByShop[order.shop_id] = (creditsByShop[order.shop_id] || 0) + pending;
-          }
+        (data || []).forEach((row: { shop_id: string; pending_credit: number }) => {
+          creditsByShop[row.shop_id] = (creditsByShop[row.shop_id] || 0) + Number(row.pending_credit);
         });
-
-        // Also fetch manual credits that are pending
-        const { data: manualCredits, error: mcError } = await supabase
-          .from('manual_credits')
-          .select('shop_id, amount')
-          .eq('status', 'pending');
-
-        if (!mcError && manualCredits) {
-          manualCredits.forEach(mc => {
-            creditsByShop[mc.shop_id] = (creditsByShop[mc.shop_id] || 0) + mc.amount;
-          });
-        }
 
         setShopPendingCredits(creditsByShop);
       } catch (error) {
