@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign, Trash2, Calendar, User, FileEdit } from 'lucide-react';
+import { Plus, Search, Eye, Loader2, Printer, Edit2, MapPin, FileText, Receipt, DollarSign, Trash2, Calendar, User, FileEdit, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
 import { useOrders, useOrderFilters } from '@/hooks/useOrders';
@@ -13,6 +13,7 @@ import { RouteBillsPrintModal } from '@/components/orders/RouteBillsPrintModal';
 import { BulkCashUpdateModal } from '@/components/orders/BulkCashUpdateModal';
 import { DailyAdminOrdersPrintModal } from '@/components/orders/DailyAdminOrdersPrintModal';
 import { EditBillModal } from '@/components/orders/EditBillModal';
+import { PaymentHistoryModal } from '@/components/orders/PaymentHistoryModal';
 import { z } from 'zod';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 
@@ -93,7 +94,8 @@ const OrderActions = memo(({
   onEdit, 
   onEditBill,
   onPrint,
-  onDelete
+  onDelete,
+  onPaymentHistory
 }: { 
   order: Order; 
   isAdmin: boolean;
@@ -103,6 +105,7 @@ const OrderActions = memo(({
   onEditBill: () => void;
   onPrint: () => void;
   onDelete: () => void;
+  onPaymentHistory: () => void;
 }) => (
   <div className="flex gap-1">
     <button onClick={onView} className="rounded-lg p-2 hover:bg-muted" title="View">
@@ -115,6 +118,9 @@ const OrderActions = memo(({
         </button>
         <button onClick={onEditBill} className="rounded-lg p-2 hover:bg-muted" title="Edit Bill Items">
           <FileEdit className="h-4 w-4 text-accent" />
+        </button>
+        <button onClick={onPaymentHistory} className="rounded-lg p-2 hover:bg-muted" title="Payment History">
+          <History className="h-4 w-4 text-success" />
         </button>
         <button onClick={onPrint} className="rounded-lg p-2 hover:bg-muted" title="Print">
           <Printer className="h-4 w-4 text-muted-foreground" />
@@ -266,6 +272,8 @@ const Orders: React.FC = () => {
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
   const [showEditBillModal, setShowEditBillModal] = useState(false);
   const [editBillOrder, setEditBillOrder] = useState<Order | null>(null);
+  const [showPaymentHistoryModal, setShowPaymentHistoryModal] = useState(false);
+  const [paymentHistoryOrder, setPaymentHistoryOrder] = useState<Order | null>(null);
 
   // New order form states
   const [selectedShop, setSelectedShop] = useState('');
@@ -569,11 +577,32 @@ const Orders: React.FC = () => {
         paid_amount: finalPaidAmount,
       };
 
+      // Calculate payment amount received in this update
+      const paymentReceived = finalPaidAmount - previousPaid;
+
       // If payment is being received, record the date and method
-      if (finalPaidAmount > previousPaid) {
+      if (paymentReceived > 0) {
         updateData.payment_received_at = new Date().toISOString();
         if (editPaymentMethod) {
           updateData.payment_method = editPaymentMethod;
+        }
+
+        // Record payment in payment_history table
+        const { error: historyError } = await supabase
+          .from('payment_history')
+          .insert({
+            order_id: editingOrder.id,
+            shop_id: editingOrder.shop_id,
+            booker_id: editingOrder.booker_id,
+            amount: paymentReceived,
+            payment_method: editPaymentMethod || null,
+            paid_at: new Date().toISOString(),
+            created_by: user?.id
+          });
+
+        if (historyError) {
+          console.error('Failed to record payment history:', historyError);
+          // Don't throw - payment history is supplementary
         }
       }
 
@@ -607,7 +636,7 @@ const Orders: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [editingOrder, editStatus, editPaymentStatus, editPaidAmount, refetch]);
+  }, [editingOrder, editStatus, editPaymentStatus, editPaidAmount, editPaymentMethod, user, isAdmin, allShops, shops, refetch]);
 
   const printOrder = useCallback((order: Order) => {
     // For admin, show print modal with discount option
@@ -769,6 +798,10 @@ const Orders: React.FC = () => {
             onEditBill={() => openEditBillModal(item)}
             onPrint={() => printOrder(item)}
             onDelete={() => handleDeleteOrder(item)}
+            onPaymentHistory={() => {
+              setPaymentHistoryOrder(item);
+              setShowPaymentHistoryModal(true);
+            }}
           />
         );
       },
@@ -1087,6 +1120,20 @@ const Orders: React.FC = () => {
             setEditBillOrder(null);
           }}
           onSuccess={refetch}
+        />
+      )}
+
+      {showPaymentHistoryModal && paymentHistoryOrder && (
+        <PaymentHistoryModal
+          orderId={paymentHistoryOrder.id}
+          orderNumber={paymentHistoryOrder.order_number}
+          shopName={paymentHistoryOrder.shops?.name || 'Unknown'}
+          totalAmount={paymentHistoryOrder.total_amount}
+          paidAmount={paymentHistoryOrder.paid_amount || 0}
+          onClose={() => {
+            setShowPaymentHistoryModal(false);
+            setPaymentHistoryOrder(null);
+          }}
         />
       )}
     </div>
