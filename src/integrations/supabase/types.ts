@@ -507,6 +507,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_shop_pending_credits: {
+        Args: never
+        Returns: {
+          pending_credit: number
+          shop_id: string
+        }[]
+      }
       get_user_status: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["approval_status"]
