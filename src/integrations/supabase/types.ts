@@ -264,6 +264,60 @@ export type Database = {
           },
         ]
       }
+      payment_history: {
+        Row: {
+          amount: number
+          booker_id: string
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          order_id: string
+          paid_at: string
+          payment_method: string | null
+          shop_id: string
+        }
+        Insert: {
+          amount: number
+          booker_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          paid_at?: string
+          payment_method?: string | null
+          shop_id: string
+        }
+        Update: {
+          amount?: number
+          booker_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          paid_at?: string
+          payment_method?: string | null
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_history_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           boxes_per_carton: number | null

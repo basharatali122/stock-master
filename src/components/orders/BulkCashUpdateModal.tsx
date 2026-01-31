@@ -7,6 +7,7 @@ interface Order {
   id: string;
   order_number: string;
   shop_id: string;
+  booker_id: string;
   total_amount: number;
   paid_amount: number;
   status: string;
@@ -81,6 +82,9 @@ export const BulkCashUpdateModal = memo(({ orders, onClose, onSuccess }: BulkCas
       // Group orders by shop to batch credit balance updates
       const shopCreditUpdates = new Map<string, number>();
       
+      // Get current user for payment history tracking
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Update each order - set as fully paid and delivered
       for (const order of selectedOrdersList) {
         const previousPaid = order.paid_amount || 0;
@@ -103,6 +107,26 @@ export const BulkCashUpdateModal = memo(({ orders, onClose, onSuccess }: BulkCas
           .eq('id', order.id);
 
         if (error) throw error;
+
+        // Record payment in payment_history table if there was actual payment
+        if (creditChange > 0) {
+          const { error: historyError } = await supabase
+            .from('payment_history')
+            .insert({
+              order_id: order.id,
+              shop_id: order.shop_id,
+              booker_id: order.booker_id || user?.id,
+              amount: creditChange,
+              payment_method: 'cash',
+              paid_at: new Date().toISOString(),
+              created_by: user?.id
+            });
+
+          if (historyError) {
+            console.error('Failed to record payment history:', historyError);
+            // Don't throw - payment history is supplementary
+          }
+        }
 
         // Track credit changes per shop
         if (creditChange > 0) {
