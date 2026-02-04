@@ -51,6 +51,7 @@ interface Product {
 interface DateRange {
   start?: Date;
   end?: Date;
+  pendingCreditsOnly?: boolean;
 }
 
 export function useOrders(isAdmin: boolean, userId: string | undefined, dateRange?: DateRange) {
@@ -92,9 +93,13 @@ export function useOrders(isAdmin: boolean, userId: string | undefined, dateRang
           .lte('created_at', todayEnd.toISOString())
           .limit(100);
       } else if (isAdmin) {
-        // Admin: if date range is provided, use it (no limit for targeted queries)
-        // Otherwise, fetch recent orders with a higher limit
-        if (dateRange?.start && dateRange?.end) {
+        // Admin: handle different filter modes
+        if (dateRange?.pendingCreditsOnly) {
+          // Pending credits: fetch all orders with unpaid balance (no date limit)
+          ordersQuery = ordersQuery
+            .in('payment_status', ['credit', 'partial'])
+            .neq('status', 'cancelled');
+        } else if (dateRange?.start && dateRange?.end) {
           ordersQuery = ordersQuery
             .gte('created_at', dateRange.start.toISOString())
             .lte('created_at', dateRange.end.toISOString());
@@ -106,13 +111,8 @@ export function useOrders(isAdmin: boolean, userId: string | undefined, dateRang
             .gte('created_at', dateRange.start.toISOString())
             .lte('created_at', dayEnd.toISOString());
         } else {
-          // Default: last 30 days for admin with higher limit
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          thirtyDaysAgo.setHours(0, 0, 0, 0);
-          ordersQuery = ordersQuery
-            .gte('created_at', thirtyDaysAgo.toISOString())
-            .limit(1000);
+          // All time - no date filter, but limit for performance
+          ordersQuery = ordersQuery.limit(2000);
         }
       }
 
@@ -195,7 +195,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined, dateRang
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, userId, dateRange?.start?.getTime(), dateRange?.end?.getTime()]);
+  }, [isAdmin, userId, dateRange?.start?.getTime(), dateRange?.end?.getTime(), dateRange?.pendingCreditsOnly]);
 
   // Smart update for realtime changes - orders
   const handleRealtimeUpdate = useCallback((payload: any) => {
