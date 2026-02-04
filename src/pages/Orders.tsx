@@ -44,9 +44,10 @@ interface Order {
 
 const paymentFilters = ['All', 'Paid', 'Credit', 'Partial'];
 const datePresets = [
-  { label: 'All Time', value: 'all' },
+  { label: 'Pending Credits', value: 'pending_credits' },
   { label: 'Today', value: 'today' },
   { label: 'Yesterday', value: 'yesterday' },
+  { label: 'All Time', value: 'all' },
   { label: 'Custom', value: 'custom' },
 ];
 
@@ -141,12 +142,20 @@ const Orders: React.FC = () => {
   const { isAdmin, user } = useAuth();
   
   // Date filter state - moved up to be used in hook
-  const [datePreset, setDatePreset] = useState('all');
+  // Default to 'pending_credits' so admin sees unpaid orders first
+  const [datePreset, setDatePreset] = useState('pending_credits');
   const [customDate, setCustomDate] = useState('');
   
   // Compute date range for API call
   const dateRange = useMemo(() => {
-    if (!isAdmin || datePreset === 'all') return undefined;
+    if (!isAdmin) return undefined;
+    
+    // Special mode: pending credits only (no date filter, just payment status)
+    if (datePreset === 'pending_credits') {
+      return { pendingCreditsOnly: true };
+    }
+    
+    if (datePreset === 'all') return undefined;
     
     let targetDate: Date;
     if (datePreset === 'today') {
