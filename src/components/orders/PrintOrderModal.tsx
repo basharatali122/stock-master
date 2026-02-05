@@ -47,15 +47,19 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
   const [adjustedItems, setAdjustedItems] = useState<Record<string, AdjustedItem>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize adjusted items with original prices
+  // Initialize adjusted items with ORIGINAL product prices from products table
+  // This ensures the modal shows the original catalog price, not any previously adjusted price
   useEffect(() => {
     if (order.order_items) {
       const initialAdjustments: Record<string, AdjustedItem> = {};
       order.order_items.forEach(item => {
+        // Use the original product price from products table, NOT the saved unit_price
+        // The unit_price may already be a discounted value from a previous adjustment
+        const originalPrice = item.products?.price || item.unit_price;
         initialAdjustments[item.id] = {
           id: item.id,
-          adjustedPrice: item.unit_price,
-          adjustedTotal: item.quantity * item.unit_price * (1 - (item.discount_applied || 0) / 100),
+          adjustedPrice: originalPrice,
+          adjustedTotal: item.quantity * originalPrice,
         };
       });
       setAdjustedItems(initialAdjustments);
