@@ -45,6 +45,8 @@ interface Product {
   discount_percentage: number;
   stock_quantity: number;
   boxes_per_carton: number;
+  brand: string | null;
+  pack_type: string | null;
 }
 
 // Date range for fetching orders
@@ -130,7 +132,7 @@ export function useOrders(isAdmin: boolean, userId: string | undefined, dateRang
         // Fetch only active products with needed fields
         supabase
           .from('products')
-          .select('id, name, product_code, price, discount_percentage, stock_quantity, boxes_per_carton')
+          .select('id, name, product_code, price, discount_percentage, stock_quantity, boxes_per_carton, brand, pack_type')
           .eq('is_active', true)
           .gt('stock_quantity', 0) // Only products in stock
           .order('name')
