@@ -331,6 +331,7 @@ export type Database = {
           pack_type: string | null
           price: number
           product_code: string | null
+          purchase_rate: number | null
           stock_quantity: number | null
           updated_at: string | null
         }
@@ -346,6 +347,7 @@ export type Database = {
           pack_type?: string | null
           price: number
           product_code?: string | null
+          purchase_rate?: number | null
           stock_quantity?: number | null
           updated_at?: string | null
         }
@@ -361,6 +363,7 @@ export type Database = {
           pack_type?: string | null
           price?: number
           product_code?: string | null
+          purchase_rate?: number | null
           stock_quantity?: number | null
           updated_at?: string | null
         }

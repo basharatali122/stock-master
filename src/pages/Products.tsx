@@ -15,6 +15,7 @@ interface Product {
   pack_type: string | null;
   category: string;
   price: number;
+  purchase_rate: number;
   stock_quantity: number;
   discount_percentage: number;
   boxes_per_carton: number;
@@ -47,10 +48,12 @@ const Products: React.FC = () => {
     pack_type: '',
     category: '',
     price: '',
+    purchase_rate: '',
     stock_quantity: '',
     discount_percentage: '0',
     boxes_per_carton: '24',
   });
+  const [printMode, setPrintMode] = useState<'tp' | 'purchase'>('tp');
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -83,6 +86,7 @@ const Products: React.FC = () => {
       pack_type: formData.pack_type,
       category: formData.category,
       price: parseFloat(formData.price) || 0,
+      purchase_rate: parseFloat(formData.purchase_rate) || 0,
       stock_quantity: parseInt(formData.stock_quantity) || 0,
       discount_percentage: parseFloat(formData.discount_percentage) || 0,
       boxes_per_carton: parseInt(formData.boxes_per_carton) || 24,
@@ -104,6 +108,7 @@ const Products: React.FC = () => {
         pack_type: validatedData.pack_type,
         category: validatedData.category,
         price: validatedData.price,
+        purchase_rate: validatedData.purchase_rate,
         stock_quantity: validatedData.stock_quantity,
         discount_percentage: validatedData.discount_percentage,
         boxes_per_carton: validatedData.boxes_per_carton,
@@ -137,6 +142,7 @@ const Products: React.FC = () => {
       pack_type: formData.pack_type,
       category: formData.category,
       price: parseFloat(formData.price) || 0,
+      purchase_rate: parseFloat(formData.purchase_rate) || 0,
       stock_quantity: parseInt(formData.stock_quantity) || 0,
       discount_percentage: parseFloat(formData.discount_percentage) || 0,
       boxes_per_carton: parseInt(formData.boxes_per_carton) || 24,
@@ -160,6 +166,7 @@ const Products: React.FC = () => {
           pack_type: validatedData.pack_type,
           category: validatedData.category,
           price: validatedData.price,
+          purchase_rate: validatedData.purchase_rate,
           stock_quantity: validatedData.stock_quantity,
           discount_percentage: validatedData.discount_percentage,
           boxes_per_carton: validatedData.boxes_per_carton,
@@ -207,6 +214,7 @@ const Products: React.FC = () => {
       pack_type: product.pack_type || '',
       category: product.category,
       price: product.price.toString(),
+      purchase_rate: product.purchase_rate?.toString() || '0',
       stock_quantity: product.stock_quantity?.toString() || '0',
       discount_percentage: product.discount_percentage?.toString() || '0',
       boxes_per_carton: product.boxes_per_carton?.toString() || '24',
@@ -259,6 +267,7 @@ const Products: React.FC = () => {
       pack_type: '',
       category: '',
       price: '',
+      purchase_rate: '',
       stock_quantity: '',
       discount_percentage: '0',
       boxes_per_carton: '24',
@@ -295,6 +304,11 @@ const Products: React.FC = () => {
     let totalBoxes = 0;
     let totalValue = 0;
 
+    // Use the selected print mode to determine which rate to use
+    const useRate = printMode === 'purchase' ? 'purchase_rate' : 'price';
+    const rateLabel = printMode === 'purchase' ? 'Purchase Rate' : 'TP Rate';
+    const reportTitle = printMode === 'purchase' ? 'Stock Inventory (Purchase Rate)' : 'Stock Inventory (TP Rate)';
+
     let brandSections = '';
 
     Object.entries(groupedByBrand).forEach(([brand, brandProducts]) => {
@@ -309,7 +323,8 @@ const Products: React.FC = () => {
         const boxes = product.stock_quantity || 0;
         const cartons = Math.floor(boxes / (product.boxes_per_carton || 24));
         const remainingBoxes = boxes % (product.boxes_per_carton || 24);
-        const value = boxes * product.price;
+        const rate = printMode === 'purchase' ? (product.purchase_rate || 0) : product.price;
+        const value = boxes * rate;
         
         totalBoxes += boxes;
         brandBoxes += boxes;
@@ -324,7 +339,7 @@ const Products: React.FC = () => {
             <td>${product.pack_type || '-'}</td>
             <td style="text-align: center;">${boxes}</td>
             <td style="text-align: center;">${cartons}${remainingBoxes > 0 ? ` + ${remainingBoxes}` : ''}</td>
-            <td style="text-align: right;">${formatCurrencyForPrint(product.price)}</td>
+            <td style="text-align: right;">${formatCurrencyForPrint(rate)}</td>
             <td style="text-align: right; font-weight: bold;">${formatCurrencyForPrint(value)}</td>
           </tr>
         `;
@@ -343,7 +358,7 @@ const Products: React.FC = () => {
               <th style="width: 100px;">Pack Type</th>
               <th style="text-align: center; width: 80px;">Boxes</th>
               <th style="text-align: center; width: 100px;">Cartons</th>
-              <th style="text-align: right; width: 90px;">Unit Price</th>
+              <th style="text-align: right; width: 90px;">${rateLabel}</th>
               <th style="text-align: right; width: 100px;">Value</th>
             </tr>
           </thead>
@@ -356,7 +371,7 @@ const Products: React.FC = () => {
 
     const content = `
       <div class="header">
-        <h1>Stock Inventory Report</h1>
+        <h1>${reportTitle}</h1>
         <p>Generated on ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}</p>
       </div>
       
@@ -370,7 +385,7 @@ const Products: React.FC = () => {
           <span class="info-value">${totalBoxes.toLocaleString()}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">Total Stock Value:</span>
+          <span class="info-label">Total Stock Value (${rateLabel}):</span>
           <span class="info-value" style="color: #16a34a; font-weight: bold;">${formatCurrencyForPrint(totalValue)}</span>
         </div>
         <div class="info-item">
@@ -391,13 +406,13 @@ const Products: React.FC = () => {
           <span>${totalBoxes.toLocaleString()} boxes</span>
         </div>
         <div class="summary-row total">
-          <span>Total Stock Value:</span>
+          <span>Total Stock Value (${rateLabel}):</span>
           <span style="color: #16a34a;">${formatCurrencyForPrint(totalValue)}</span>
         </div>
       </div>
     `;
 
-    printContent(content, 'Stock Inventory Report');
+    printContent(content, reportTitle);
   };
 
   const filteredProducts = useMemo(() => {
@@ -538,7 +553,25 @@ const Products: React.FC = () => {
             </p>
           </div>
           {isAdmin && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
+                <button
+                  onClick={() => setPrintMode('tp')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    printMode === 'tp' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  TP Rate
+                </button>
+                <button
+                  onClick={() => setPrintMode('purchase')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    printMode === 'purchase' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Purchase Rate
+                </button>
+              </div>
               <button
                 onClick={handlePrintStock}
                 className="btn-secondary"
@@ -706,7 +739,7 @@ const Products: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Price *</label>
+                  <label className="mb-1.5 block text-sm font-medium">TP Rate (Sale Price) *</label>
                   <input
                     type="number"
                     className="input-field"
@@ -716,6 +749,20 @@ const Products: React.FC = () => {
                     disabled={submitting}
                   />
                 </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Purchase Rate (Cost)</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    placeholder="0"
+                    value={formData.purchase_rate}
+                    onChange={(e) => setFormData({ ...formData, purchase_rate: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Stock Qty (Boxes)</label>
                   <input
@@ -727,9 +774,6 @@ const Products: React.FC = () => {
                     disabled={submitting}
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Boxes per Carton *</label>
                   <input
@@ -741,6 +785,9 @@ const Products: React.FC = () => {
                     disabled={submitting}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Discount %</label>
                   <input
@@ -856,7 +903,7 @@ const Products: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Price *</label>
+                  <label className="mb-1.5 block text-sm font-medium">TP Rate (Sale Price) *</label>
                   <input
                     type="number"
                     className="input-field"
@@ -865,6 +912,19 @@ const Products: React.FC = () => {
                     disabled={submitting}
                   />
                 </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Purchase Rate (Cost)</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={formData.purchase_rate}
+                    onChange={(e) => setFormData({ ...formData, purchase_rate: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Stock Qty (Boxes)</label>
                   <input
@@ -875,9 +935,6 @@ const Products: React.FC = () => {
                     disabled={submitting}
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Boxes per Carton *</label>
                   <input
@@ -888,6 +945,9 @@ const Products: React.FC = () => {
                     disabled={submitting}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Discount %</label>
                   <input
