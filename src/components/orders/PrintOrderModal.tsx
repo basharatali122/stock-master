@@ -47,27 +47,37 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
   const [adjustedItems, setAdjustedItems] = useState<Record<string, AdjustedItem>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize adjusted items with ORIGINAL product prices from products table
-  // This ensures the modal shows the original catalog price, not any previously adjusted price
+  // Initialize adjusted items
+  // If the order has already been adjusted (unit_price differs from catalog price), use saved price
+  // Otherwise, use original catalog price for new orders
   useEffect(() => {
     if (order.order_items) {
       const initialAdjustments: Record<string, AdjustedItem> = {};
       order.order_items.forEach(item => {
-        // Use the original product price from products table, NOT the saved unit_price
-        // The unit_price may already be a discounted value from a previous adjustment
-        const originalPrice = item.products?.price || item.unit_price;
+        const catalogPrice = item.products?.price || item.unit_price;
+        const savedPrice = item.unit_price;
+        
+        // Check if this order was previously adjusted
+        // If saved unit_price differs from catalog price, use saved (already adjusted)
+        // Otherwise use catalog price (fresh order)
+        const priceWasAdjusted = savedPrice !== catalogPrice;
+        const displayPrice = priceWasAdjusted ? savedPrice : catalogPrice;
+        
         initialAdjustments[item.id] = {
           id: item.id,
-          adjustedPrice: originalPrice,
-          adjustedTotal: item.quantity * originalPrice,
+          adjustedPrice: displayPrice,
+          // Calculate total WITHOUT applying discount_applied again - just price * quantity
+          adjustedTotal: item.quantity * displayPrice,
         };
       });
       setAdjustedItems(initialAdjustments);
     }
   }, [order.order_items]);
 
-  const handlePriceChange = (itemId: string, newPrice: number, quantity: number, discountApplied: number) => {
-    const adjustedTotal = quantity * newPrice * (1 - (discountApplied || 0) / 100);
+  // When user changes price, calculate total as simple price * quantity
+  // Do NOT apply discount_applied percentage - the user is directly setting the final price
+  const handlePriceChange = (itemId: string, newPrice: number, quantity: number) => {
+    const adjustedTotal = quantity * newPrice;
     setAdjustedItems(prev => ({
       ...prev,
       [itemId]: {
@@ -386,8 +396,7 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
                           onChange={(e) => handlePriceChange(
                             item.id,
                             parseFloat(e.target.value) || 0,
-                            item.quantity,
-                            item.discount_applied || 0
+                            item.quantity
                           )}
                         />
                       </td>
