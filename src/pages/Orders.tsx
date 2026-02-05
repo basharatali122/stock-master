@@ -14,6 +14,7 @@ import { BulkCashUpdateModal } from '@/components/orders/BulkCashUpdateModal';
 import { DailyAdminOrdersPrintModal } from '@/components/orders/DailyAdminOrdersPrintModal';
 import { EditBillModal } from '@/components/orders/EditBillModal';
 import { PaymentHistoryModal } from '@/components/orders/PaymentHistoryModal';
+import { QuickPaymentModal } from '@/components/orders/QuickPaymentModal';
 import { z } from 'zod';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 
@@ -283,6 +284,8 @@ const Orders: React.FC = () => {
   const [editBillOrder, setEditBillOrder] = useState<Order | null>(null);
   const [showPaymentHistoryModal, setShowPaymentHistoryModal] = useState(false);
   const [paymentHistoryOrder, setPaymentHistoryOrder] = useState<Order | null>(null);
+  const [showQuickPaymentModal, setShowQuickPaymentModal] = useState(false);
+  const [quickPaymentOrder, setQuickPaymentOrder] = useState<Order | null>(null);
 
   // New order form states
   const [selectedShop, setSelectedShop] = useState('');
@@ -782,7 +785,33 @@ const Orders: React.FC = () => {
     {
       key: 'total_amount',
       header: 'Amount',
-      render: (item: Order) => <span className="font-medium">{formatCurrency(item.total_amount)}</span>,
+      render: (item: Order) => {
+        const pending = item.total_amount - (item.paid_amount || 0);
+        const hasPending = pending > 0;
+        return (
+          <div>
+            <span className="font-medium">{formatCurrency(item.total_amount)}</span>
+            {hasPending && isAdmin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setQuickPaymentOrder(item);
+                  setShowQuickPaymentModal(true);
+                }}
+                className="block text-xs text-warning hover:text-warning/80 hover:underline cursor-pointer mt-0.5"
+                title="Click to add payment"
+              >
+                Pending: {formatCurrency(pending)}
+              </button>
+            )}
+            {hasPending && !isAdmin && (
+              <span className="block text-xs text-warning mt-0.5">
+                Pending: {formatCurrency(pending)}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'payment_status',
@@ -1149,6 +1178,23 @@ const Orders: React.FC = () => {
           onClose={() => {
             setShowPaymentHistoryModal(false);
             setPaymentHistoryOrder(null);
+          }}
+          onPaymentAdded={refetch}
+        />
+      )}
+
+      {showQuickPaymentModal && quickPaymentOrder && isAdmin && (
+        <QuickPaymentModal
+          orderId={quickPaymentOrder.id}
+          orderNumber={quickPaymentOrder.order_number}
+          shopId={quickPaymentOrder.shop_id}
+          bookerId={quickPaymentOrder.booker_id}
+          shopName={quickPaymentOrder.shops?.name || 'Unknown'}
+          totalAmount={quickPaymentOrder.total_amount}
+          paidAmount={quickPaymentOrder.paid_amount || 0}
+          onClose={() => {
+            setShowQuickPaymentModal(false);
+            setQuickPaymentOrder(null);
           }}
           onPaymentAdded={refetch}
         />
