@@ -1141,6 +1141,8 @@ const Orders: React.FC = () => {
         <PaymentHistoryModal
           orderId={paymentHistoryOrder.id}
           orderNumber={paymentHistoryOrder.order_number}
+          shopId={paymentHistoryOrder.shop_id}
+          bookerId={paymentHistoryOrder.booker_id}
           shopName={paymentHistoryOrder.shops?.name || 'Unknown'}
           totalAmount={paymentHistoryOrder.total_amount}
           paidAmount={paymentHistoryOrder.paid_amount || 0}
@@ -1148,6 +1150,7 @@ const Orders: React.FC = () => {
             setShowPaymentHistoryModal(false);
             setPaymentHistoryOrder(null);
           }}
+          onPaymentAdded={refetch}
         />
       )}
     </div>
