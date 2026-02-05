@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/ui/StatCard';
 import BrandStockReport from '@/components/reports/BrandStockReport';
-import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi, Package, Percent, User } from 'lucide-react';
+import ProductSaleSummary from '@/components/reports/ProductSaleSummary';
+import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi, Package, Percent, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
 
@@ -691,6 +692,18 @@ const Reports: React.FC = () => {
         ) : (
           <p className="text-center text-muted-foreground py-8">No discounts recorded this month</p>
         )}
+      </div>
+
+      {/* Product Sale Summary */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-accent" />
+            <h3 className="text-lg font-semibold">Product Sale Summary</h3>
+          </div>
+          <span className="text-sm text-muted-foreground">By Pack Type & Price</span>
+        </div>
+        <ProductSaleSummary />
       </div>
 
       {/* Brand-wise Stock Report */}
