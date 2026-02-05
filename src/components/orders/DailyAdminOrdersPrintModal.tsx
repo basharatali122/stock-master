@@ -193,21 +193,26 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
   const displayDate = selectedDate;
 
   const printBillsSummary = () => {
+    // Get area/location from shop address (last part after comma)
+    const getAreaFromAddress = (address: string | undefined) => {
+      if (!address) return '';
+      const parts = address.split(',');
+      return parts[parts.length - 1]?.trim() || address;
+    };
+
     const billsHtml = billsSummary.map((item, idx) => {
-      const hasDiscount = item.totalDiscount > 0;
+      const invoiceNumbers = item.orders.map(o => o.order_number).join(', ');
+      const area = getAreaFromAddress(item.shop?.address);
+      
       return `
         <tr>
-          <td>${idx + 1}</td>
-          <td>${safeText(item.orders[0]?.order_number || '')}</td>
-          <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
-          <td>${safeText(item.shop?.address || 'N/A')}</td>
+          <td style="text-align: center;">${idx + 1}</td>
+          <td style="text-align: center;">${safeText(item.shop?.shop_code || '-')}</td>
+          <td>${safeText(item.shop?.name || 'N/A')}</td>
           <td>${safeText(item.routeName)}</td>
-          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
-          <td>${formatCurrencyForPrint(item.grossAmount)}</td>
-          <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
-          <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
-          <td>${formatCurrencyForPrint(item.shopBalance)}</td>
-          <td>${formatCurrencyForPrint(item.receivedAmount)}</td>
+          <td>${safeText(area)}</td>
+          <td>${safeText(invoiceNumbers)}</td>
+          <td style="text-align: right;">${item.totalAmount.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         </tr>
       `;
     }).join('');
@@ -215,51 +220,48 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
     const routesList = routesSummary.map(([name, count]) => `${name} (${count})`).join(', ');
 
     const content = `
-      <div class="header">
-        <h1>${safeText(COMPANY_INFO.name)}</h1>
-        <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
-        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
-        <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - BILLS SUMMARY</h2>
-        <table style="width: 100%; margin-top: 10px; border: none;">
+      <style>
+        .bills-table { border-collapse: collapse; width: 100%; font-size: 11px; }
+        .bills-table th, .bills-table td { border: 1px solid #000; padding: 6px 8px; }
+        .bills-table th { background: #f0f0f0; font-weight: bold; text-align: center; }
+        .bills-table td { vertical-align: middle; }
+        .total-row td { font-weight: bold; background: #f5f5f5; }
+      </style>
+      <div class="header" style="border-bottom: none; margin-bottom: 10px; padding-bottom: 5px;">
+        <h1 style="font-size: 22px; margin-bottom: 8px;">${safeText(COMPANY_INFO.name)}</h1>
+        <h2 style="font-size: 14px; font-weight: normal; margin-bottom: 15px;">Sale Invoices/Credits (By Date)</h2>
+        <table style="width: 100%; border: none; font-size: 11px;">
           <tr style="background: transparent;">
-            <td style="border: none; text-align: left;">
-              <strong>Type:</strong> Admin Orders<br/>
-              <strong>Routes:</strong> ${safeText(routesList)}
+            <td style="border: none; text-align: left; width: 50%; vertical-align: top;">
+              <div>Transaction Type: All</div>
+              <div>Date From: ${safeText(displayDate)}</div>
+              <div>Date To: ${safeText(displayDate)}</div>
             </td>
-            <td style="border: none; text-align: right;">
-              <strong>Date:</strong> ${safeText(displayDate)}<br/>
-              <strong>Invoice Count:</strong> ${todayOrders.length}
+            <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
+              <div>Customers: All</div>
+              <div style="margin-top: 5px;"><small>Routes: ${safeText(routesList)}</small></div>
             </td>
           </tr>
         </table>
       </div>
       
-      <table>
+      <table class="bills-table">
         <thead>
           <tr>
-            <th>Sr#</th>
-            <th>Invoice No.</th>
-            <th>Shop Name</th>
-            <th>Shop Address</th>
-            <th>Route</th>
-            <th>Qty<br/>(Ctn-Box)</th>
-            <th>Gross Amt</th>
-            <th>Discount</th>
-            <th>Net Invoice</th>
-            <th>Balance</th>
-            <th>Received</th>
+            <th style="width: 40px;">Sr.</th>
+            <th style="width: 70px;">A/C No.</th>
+            <th style="min-width: 180px;">Customer</th>
+            <th style="width: 100px;">Route</th>
+            <th style="width: 100px;">Area</th>
+            <th style="width: 80px;">Inv. No.</th>
+            <th style="width: 90px; text-align: right;">Total</th>
           </tr>
         </thead>
         <tbody>
           ${billsHtml}
-          <tr style="font-weight: bold; background: #e5e5e5;">
-            <td colspan="5"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes}</td>
-            <td>${formatCurrencyForPrint(totals.totalGross)}</td>
-            <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
-            <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
-            <td></td>
-            <td>${formatCurrencyForPrint(totals.totalReceived)}</td>
+          <tr class="total-row">
+            <td colspan="6" style="text-align: left;"><strong>Total</strong></td>
+            <td style="text-align: right;">${totals.totalInvoice.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           </tr>
         </tbody>
       </table>
