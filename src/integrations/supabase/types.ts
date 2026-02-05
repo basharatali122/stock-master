@@ -561,6 +561,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_shop_code: { Args: never; Returns: string }
       get_shop_pending_credits: {
         Args: never
         Returns: {
