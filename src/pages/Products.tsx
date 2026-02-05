@@ -112,7 +112,7 @@ const Products: React.FC = () => {
         stock_quantity: validatedData.stock_quantity,
         discount_percentage: validatedData.discount_percentage,
         boxes_per_carton: validatedData.boxes_per_carton,
-      });
+      } as any);
 
       if (error) throw error;
 
@@ -170,7 +170,7 @@ const Products: React.FC = () => {
           stock_quantity: validatedData.stock_quantity,
           discount_percentage: validatedData.discount_percentage,
           boxes_per_carton: validatedData.boxes_per_carton,
-        })
+        } as any)
         .eq('id', editingProduct.id);
 
       if (error) throw error;
