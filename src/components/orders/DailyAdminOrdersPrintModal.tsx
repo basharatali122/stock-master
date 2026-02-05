@@ -141,6 +141,8 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
   const loadForm = useMemo(() => {
     const productTotals = new Map<string, {
       product: Product | undefined;
+      productName: string;
+      productCode: string;
       totalQuantity: number;
       cartons: number;
       boxes: number;
@@ -149,8 +151,12 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
 
     todayOrders.forEach(order => {
       order.order_items?.forEach(item => {
+        const foundProduct = products.find(p => p.id === item.product_id);
         const existing = productTotals.get(item.product_id) || {
-          product: products.find(p => p.id === item.product_id),
+          product: foundProduct,
+          // Use product name from products list, or fallback to order_item's products relation
+          productName: foundProduct?.name || item.products?.name || 'Unknown Product',
+          productCode: foundProduct?.product_code || item.products?.product_code || '',
           totalQuantity: 0,
           cartons: 0,
           boxes: 0,
@@ -263,14 +269,13 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
 
   const printLoadForm = () => {
     const loadHtml = loadForm.map((item, idx) => {
-      const product = item.product;
-      const packInfo = `${product?.boxes_per_carton || 24} x 24`;
-      const tradePrice = product?.price || 0;
+      const packInfo = `${item.product?.boxes_per_carton || 24} x 24`;
+      const tradePrice = item.product?.price || 0;
       
       return `
         <tr>
           <td>${idx + 1}</td>
-          <td>${safeText(product?.name || 'N/A')} - ${safeText(product?.product_code || '')}</td>
+          <td>${safeText(item.productName)}${item.productCode ? ` - ${safeText(item.productCode)}` : ''}</td>
           <td>${packInfo}</td>
           <td>${item.cartons} - ${item.boxes}</td>
           <td>${formatCurrencyForPrint(tradePrice)}</td>
