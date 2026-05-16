@@ -680,15 +680,6 @@ const Shops: React.FC = () => {
   const columns = useMemo(
     () => [
       {
-        key: "shop_code",
-        header: "Code",
-        render: (item: Shop) => (
-          <span className="rounded bg-primary/10 px-2 py-1 text-xs font-mono font-medium text-primary">
-            {item.shop_code || "N/A"}
-          </span>
-        ),
-      },
-      {
         key: "name",
         header: "Shop",
         render: (item: Shop) => (
