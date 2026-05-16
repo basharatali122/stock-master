@@ -944,27 +944,15 @@ const Shops: React.FC = () => {
             <p className="mt-1 text-sm text-muted-foreground">Update shop details</p>
 
             <form onSubmit={handleEditShop} className="mt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Shop Code *</label>
-                  <input
-                    type="text"
-                    className="input-field font-mono"
-                    value={formData.shop_code}
-                    onChange={(e) => setFormData({ ...formData, shop_code: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Shop Name *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Shop Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
