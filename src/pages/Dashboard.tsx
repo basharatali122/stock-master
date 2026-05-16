@@ -299,7 +299,7 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
 
     // Set up real-time subscriptions for orders - debounced
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     const ordersChannel = supabase
       .channel('dashboard-orders')
       .on(

@@ -26,7 +26,7 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
   callback: T,
   delay: number
 ): T {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const debouncedCallback = useCallback(
     (...args: Parameters<T>) => {
@@ -59,7 +59,7 @@ export function useThrottledCallback<T extends (...args: any[]) => any>(
   delay: number
 ): T {
   const lastRun = useRef<number>(0);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const throttledCallback = useCallback(
     (...args: Parameters<T>) => {
