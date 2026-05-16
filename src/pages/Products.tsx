@@ -667,29 +667,16 @@ const Products: React.FC = () => {
             </p>
 
             <form onSubmit={handleAddProduct} className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Product Code *</label>
-                  <input
-                    type="text"
-                    className="input-field font-mono"
-                    placeholder="e.g., PRD001"
-                    value={formData.product_code}
-                    onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g., Friendz Family Pack"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g., Friendz Family Pack"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
