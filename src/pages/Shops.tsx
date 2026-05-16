@@ -245,7 +245,6 @@ const Shops: React.FC = () => {
         phone: validatedData.phone || null,
         address: validatedData.address || null,
         route_id: validatedData.route_id,
-        shop_code: validatedData.shop_code,
       });
 
       if (error) throw error;
