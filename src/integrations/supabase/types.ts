@@ -565,6 +565,13 @@ export type Database = {
     }
     Functions: {
       generate_shop_code: { Args: never; Returns: string }
+      get_product_purchase_rates: {
+        Args: never
+        Returns: {
+          id: string
+          purchase_rate: number
+        }[]
+      }
       get_shop_pending_credits: {
         Args: never
         Returns: {
