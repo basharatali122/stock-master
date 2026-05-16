@@ -292,7 +292,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
       <div class="header">
         <h1>${safeText(COMPANY_INFO.name)}</h1>
         <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
-        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <p class="company-phones">${safeText(COMPANY_INFO.contactLine)}</p>
         <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - LOAD FORM</h2>
         <table style="width: 100%; margin-top: 10px; border: none;">
           <tr style="background: transparent;">
@@ -381,7 +381,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
       <div class="header">
         <h1>${safeText(COMPANY_INFO.name)}</h1>
         <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
-        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <p class="company-phones">${safeText(COMPANY_INFO.contactLine)}</p>
         <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - BILLS SUMMARY</h2>
         <table style="width: 100%; margin-top: 10px; border: none;">
           <tr style="background: transparent;">
@@ -432,7 +432,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
       <div class="header">
         <h1>${safeText(COMPANY_INFO.name)}</h1>
         <p class="company-address">${safeText(COMPANY_INFO.address)}</p>
-        <p class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</p>
+        <p class="company-phones">${safeText(COMPANY_INFO.contactLine)}</p>
         <h2 style="margin-top: 15px; font-size: 18px;">DAILY ADMIN ORDERS - LOAD FORM</h2>
         <table style="width: 100%; margin-top: 10px; border: none;">
           <tr style="background: transparent;">

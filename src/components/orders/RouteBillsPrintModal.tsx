@@ -73,7 +73,7 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
           <div class="header" style="border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
             <h1 style="margin: 0; font-size: 20px;">${safeText(COMPANY_INFO.name)}</h1>
             <div style="font-size: 11px; color: #666;">${safeText(COMPANY_INFO.address)}</div>
-            <div style="font-size: 11px; color: #666;">Ph: ${safeText(COMPANY_INFO.phone1)} | ${safeText(COMPANY_INFO.phone2)}</div>
+            <div style="font-size: 11px; color: #666;">${safeText(COMPANY_INFO.contactLine)}</div>
             <p style="margin: 8px 0 0 0; font-weight: bold; font-size: 14px;">ORDER INVOICE</p>
           </div>
           
