@@ -15,7 +15,6 @@ export const registerSchema = z.object({
 
 // Product validation schemas
 export const productSchema = z.object({
-  product_code: z.string().trim().min(1, { message: 'Product code is required' }).max(50, { message: 'Product code must be less than 50 characters' }),
   name: z.string().trim().min(1, { message: 'Product name is required' }).max(100, { message: 'Name must be less than 100 characters' }),
   brand: z.string().trim().min(1, { message: 'Brand is required' }).max(100, { message: 'Brand must be less than 100 characters' }),
   pack_type: z.string().trim().min(1, { message: 'Pack type is required' }).max(50, { message: 'Pack type must be less than 50 characters' }),
