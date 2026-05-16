@@ -451,15 +451,6 @@ const Products: React.FC = () => {
 
   const columns = [
     {
-      key: 'product_code',
-      header: 'Code',
-      render: (item: Product) => (
-        <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-          {item.product_code || 'N/A'}
-        </span>
-      ),
-    },
-    {
       key: 'name',
       header: 'Product',
       render: (item: Product) => (
