@@ -25,10 +25,9 @@ export const safeText = (text: string | number | null | undefined): string => {
 // Company information for printing
 export const COMPANY_INFO = {
   name: 'ALAM TRADER',
-  contactName: 'MEHAR M. SALEEM AKBAR',
   address: 'Hamza Town, Near Bhatti Hospital, Bypass Kasur',
   phone1: '0321-4480088',
-  phone2: '',
+  phone2: 'MEHAR M. SALEEM AKBAR',
 };
 
 export const printContent = (content: string, title: string) => {
