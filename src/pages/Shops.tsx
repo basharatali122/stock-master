@@ -228,7 +228,6 @@ const Shops: React.FC = () => {
       phone: formData.phone || "",
       address: formData.address || "",
       route_id: formData.route_id,
-      shop_code: formData.shop_code,
     });
 
     if (!validationResult.success) {
