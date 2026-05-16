@@ -95,7 +95,6 @@ const Products: React.FC = () => {
     
     // Validate input
     const validationResult = validateInput(productSchema, {
-      product_code: formData.product_code,
       name: formData.name,
       brand: formData.brand,
       pack_type: formData.pack_type,
@@ -117,7 +116,6 @@ const Products: React.FC = () => {
     setSubmitting(true);
     try {
       const { error } = await supabase.from('products').insert({
-        product_code: validatedData.product_code,
         name: validatedData.name,
         brand: validatedData.brand,
         pack_type: validatedData.pack_type,
