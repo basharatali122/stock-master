@@ -15,7 +15,6 @@ export const registerSchema = z.object({
 
 // Product validation schemas
 export const productSchema = z.object({
-  product_code: z.string().trim().min(1, { message: 'Product code is required' }).max(50, { message: 'Product code must be less than 50 characters' }),
   name: z.string().trim().min(1, { message: 'Product name is required' }).max(100, { message: 'Name must be less than 100 characters' }),
   brand: z.string().trim().min(1, { message: 'Brand is required' }).max(100, { message: 'Brand must be less than 100 characters' }),
   pack_type: z.string().trim().min(1, { message: 'Pack type is required' }).max(50, { message: 'Pack type must be less than 50 characters' }),
@@ -34,7 +33,7 @@ export const shopSchema = z.object({
   phone: z.string().trim().max(20, { message: 'Phone must be less than 20 characters' }).regex(/^[\d\s\+\-\(\)]*$/, { message: 'Invalid phone format' }).optional().or(z.literal('')),
   address: z.string().trim().max(500, { message: 'Address must be less than 500 characters' }).optional().or(z.literal('')),
   route_id: z.string().uuid({ message: 'Invalid route selected' }),
-  shop_code: z.string().trim().min(1, { message: 'Shop code is required' }).max(50, { message: 'Shop code must be less than 50 characters' }),
+  
 });
 
 // Order validation schemas

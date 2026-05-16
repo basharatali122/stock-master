@@ -228,7 +228,6 @@ const Shops: React.FC = () => {
       phone: formData.phone || "",
       address: formData.address || "",
       route_id: formData.route_id,
-      shop_code: formData.shop_code,
     });
 
     if (!validationResult.success) {
@@ -246,7 +245,6 @@ const Shops: React.FC = () => {
         phone: validatedData.phone || null,
         address: validatedData.address || null,
         route_id: validatedData.route_id,
-        shop_code: validatedData.shop_code,
       });
 
       if (error) throw error;
@@ -276,7 +274,7 @@ const Shops: React.FC = () => {
       phone: formData.phone || "",
       address: formData.address || "",
       route_id: formData.route_id,
-      shop_code: formData.shop_code,
+      
     });
 
     if (!validationResult.success) {
@@ -296,7 +294,7 @@ const Shops: React.FC = () => {
           phone: validatedData.phone || null,
           address: validatedData.address || null,
           route_id: validatedData.route_id,
-          shop_code: validatedData.shop_code,
+          
         })
         .eq("id", editingShop.id);
 
@@ -359,8 +357,7 @@ const Shops: React.FC = () => {
       (shop) =>
         shop.name.toLowerCase().includes(searchLower) ||
         shop.owner_name.toLowerCase().includes(searchLower) ||
-        shop.routes?.name?.toLowerCase().includes(searchLower) ||
-        (shop.shop_code && shop.shop_code.toLowerCase().includes(searchLower)),
+        shop.routes?.name?.toLowerCase().includes(searchLower)
     );
   }, [shops, searchQuery]);
 
@@ -682,15 +679,6 @@ const Shops: React.FC = () => {
   const columns = useMemo(
     () => [
       {
-        key: "shop_code",
-        header: "Code",
-        render: (item: Shop) => (
-          <span className="rounded bg-primary/10 px-2 py-1 text-xs font-mono font-medium text-primary">
-            {item.shop_code || "N/A"}
-          </span>
-        ),
-      },
-      {
         key: "name",
         header: "Shop",
         render: (item: Shop) => (
@@ -860,29 +848,16 @@ const Shops: React.FC = () => {
             <p className="mt-1 text-sm text-muted-foreground">Register a new shop</p>
 
             <form onSubmit={handleAddShop} className="mt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Shop Code *</label>
-                  <input
-                    type="text"
-                    className="input-field font-mono"
-                    placeholder="e.g., SH001"
-                    value={formData.shop_code}
-                    onChange={(e) => setFormData({ ...formData, shop_code: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Shop Name *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g., Al-Madina General Store"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Shop Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g., Al-Madina General Store"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -969,27 +944,15 @@ const Shops: React.FC = () => {
             <p className="mt-1 text-sm text-muted-foreground">Update shop details</p>
 
             <form onSubmit={handleEditShop} className="mt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Shop Code *</label>
-                  <input
-                    type="text"
-                    className="input-field font-mono"
-                    value={formData.shop_code}
-                    onChange={(e) => setFormData({ ...formData, shop_code: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Shop Name *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Shop Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

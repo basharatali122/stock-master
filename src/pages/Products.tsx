@@ -95,7 +95,6 @@ const Products: React.FC = () => {
     
     // Validate input
     const validationResult = validateInput(productSchema, {
-      product_code: formData.product_code,
       name: formData.name,
       brand: formData.brand,
       pack_type: formData.pack_type,
@@ -117,7 +116,6 @@ const Products: React.FC = () => {
     setSubmitting(true);
     try {
       const { error } = await supabase.from('products').insert({
-        product_code: validatedData.product_code,
         name: validatedData.name,
         brand: validatedData.brand,
         pack_type: validatedData.pack_type,
@@ -151,7 +149,6 @@ const Products: React.FC = () => {
 
     // Validate input
     const validationResult = validateInput(productSchema, {
-      product_code: formData.product_code,
       name: formData.name,
       brand: formData.brand,
       pack_type: formData.pack_type,
@@ -175,7 +172,6 @@ const Products: React.FC = () => {
       const { error } = await supabase
         .from('products')
         .update({
-          product_code: validatedData.product_code,
           name: validatedData.name,
           brand: validatedData.brand,
           pack_type: validatedData.pack_type,
@@ -349,7 +345,7 @@ const Products: React.FC = () => {
         productRows += `
           <tr>
             <td style="text-align: center;">${brandIndex}</td>
-            <td style="font-family: monospace; font-size: 11px;">${product.product_code || 'N/A'}</td>
+            
             <td>${product.name}</td>
             <td>${product.pack_type || '-'}</td>
             <td style="text-align: center;">${boxes}</td>
@@ -368,7 +364,7 @@ const Products: React.FC = () => {
           <thead>
             <tr>
               <th style="text-align: center; width: 50px;">Sr.</th>
-              <th style="width: 80px;">Code</th>
+              
               <th>Product Name</th>
               <th style="width: 100px;">Pack Type</th>
               <th style="text-align: center; width: 80px;">Boxes</th>
@@ -435,7 +431,6 @@ const Products: React.FC = () => {
     return products.filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchLower) ||
-        (product.product_code && product.product_code.toLowerCase().includes(searchLower)) ||
         (product.brand && product.brand.toLowerCase().includes(searchLower));
       const matchesCategory =
         selectedCategory === 'All' || product.category === selectedCategory;
@@ -454,15 +449,6 @@ const Products: React.FC = () => {
   }), [products]);
 
   const columns = [
-    {
-      key: 'product_code',
-      header: 'Code',
-      render: (item: Product) => (
-        <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-          {item.product_code || 'N/A'}
-        </span>
-      ),
-    },
     {
       key: 'name',
       header: 'Product',
@@ -681,29 +667,16 @@ const Products: React.FC = () => {
             </p>
 
             <form onSubmit={handleAddProduct} className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Product Code *</label>
-                  <input
-                    type="text"
-                    className="input-field font-mono"
-                    placeholder="e.g., PRD001"
-                    value={formData.product_code}
-                    onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g., Friendz Family Pack"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g., Friendz Family Pack"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -847,27 +820,15 @@ const Products: React.FC = () => {
             </p>
 
             <form onSubmit={handleEditProduct} className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Product Code *</label>
-                  <input
-                    type="text"
-                    className="input-field font-mono"
-                    value={formData.product_code}
-                    onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Product Name *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
