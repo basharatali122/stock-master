@@ -364,7 +364,7 @@ const Products: React.FC = () => {
           <thead>
             <tr>
               <th style="text-align: center; width: 50px;">Sr.</th>
-              <th style="width: 80px;">Code</th>
+              
               <th>Product Name</th>
               <th style="width: 100px;">Pack Type</th>
               <th style="text-align: center; width: 80px;">Boxes</th>
