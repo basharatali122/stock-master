@@ -32,7 +32,7 @@ const Header: React.FC<HeaderProps> = memo(function Header({ onMenuClick }) {
         </button>
         
         <div className="hidden md:block">
-          <h2 className="text-lg font-semibold text-foreground">ARTRADERS</h2>
+          <h2 className="text-lg font-semibold text-foreground">ALAM TRADER</h2>
         </div>
       </div>
 
