@@ -345,7 +345,7 @@ const Products: React.FC = () => {
         productRows += `
           <tr>
             <td style="text-align: center;">${brandIndex}</td>
-            <td style="font-family: monospace; font-size: 11px;">${product.product_code || 'N/A'}</td>
+            
             <td>${product.name}</td>
             <td>${product.pack_type || '-'}</td>
             <td style="text-align: center;">${boxes}</td>
