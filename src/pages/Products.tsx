@@ -431,7 +431,6 @@ const Products: React.FC = () => {
     return products.filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchLower) ||
-        (product.product_code && product.product_code.toLowerCase().includes(searchLower)) ||
         (product.brand && product.brand.toLowerCase().includes(searchLower));
       const matchesCategory =
         selectedCategory === 'All' || product.category === selectedCategory;
