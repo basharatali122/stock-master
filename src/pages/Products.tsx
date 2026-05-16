@@ -57,19 +57,34 @@ const Products: React.FC = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
+      // purchase_rate column is restricted to admins via column-level grants;
+      // explicitly select all other columns and merge purchase_rate via RPC for admins.
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('id, product_code, name, brand, pack_type, category, price, stock_quantity, discount_percentage, boxes_per_carton, is_active, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProducts(data || []);
+
+      let merged: Product[] = (data || []).map((p: any) => ({ ...p, purchase_rate: 0 }));
+
+      if (isAdmin) {
+        const { data: rates, error: rpcError } = await supabase.rpc('get_product_purchase_rates');
+        if (!rpcError && rates) {
+          const rateMap = new Map<string, number>(
+            (rates as any[]).map((r) => [r.id, Number(r.purchase_rate) || 0])
+          );
+          merged = merged.map((p) => ({ ...p, purchase_rate: rateMap.get(p.id) ?? 0 }));
+        }
+      }
+
+      setProducts(merged);
     } catch (error: any) {
       toast.error('Failed to load products: ' + error.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     fetchProducts();
