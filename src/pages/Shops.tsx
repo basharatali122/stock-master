@@ -357,8 +357,7 @@ const Shops: React.FC = () => {
       (shop) =>
         shop.name.toLowerCase().includes(searchLower) ||
         shop.owner_name.toLowerCase().includes(searchLower) ||
-        shop.routes?.name?.toLowerCase().includes(searchLower) ||
-        
+        shop.routes?.name?.toLowerCase().includes(searchLower)
     );
   }, [shops, searchQuery]);
 
