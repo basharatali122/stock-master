@@ -92,7 +92,7 @@ const Sidebar: React.FC = memo(function Sidebar() {
             <Package className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground">ARTRADERS</h1>
+            <h1 className="text-lg font-bold text-sidebar-foreground">ALAM TRADER</h1>
             <p className="text-xs text-sidebar-muted">Distribution System</p>
           </div>
         </div>

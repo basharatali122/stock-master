@@ -298,7 +298,7 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       <div class="header">
         <h1>${safeText(COMPANY_INFO.name)}</h1>
         <div class="company-address">${safeText(COMPANY_INFO.address)}</div>
-        <div class="company-phones">Ph: ${safeText(COMPANY_INFO.phone1)} | Ph: ${safeText(COMPANY_INFO.phone2)}</div>
+        <div class="company-phones">${safeText(COMPANY_INFO.contactLine)}</div>
         <p class="subtitle">Order Invoice</p>
       </div>
       <div class="info-grid">

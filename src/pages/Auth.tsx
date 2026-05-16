@@ -143,7 +143,7 @@ const Auth: React.FC = () => {
                 <Package className="h-7 w-7 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-primary-foreground">ARTRADERS</h1>
+                <h1 className="text-2xl font-bold text-primary-foreground">ALAM TRADER</h1>
                 <p className="text-sm text-primary-foreground/80">Distribution Management System</p>
               </div>
             </div>
@@ -178,7 +178,7 @@ const Auth: React.FC = () => {
           </div>
 
           <p className="text-sm text-primary-foreground/60">
-            © 2025 ARTRADERS. All rights reserved.
+            © 2025 ALAM TRADER. All rights reserved.
           </p>
         </div>
 
@@ -190,7 +190,7 @@ const Auth: React.FC = () => {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
                 <Package className="h-6 w-6 text-primary-foreground" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">ARTRADERS</h1>
+              <h1 className="text-xl font-bold text-foreground">ALAM TRADER</h1>
             </div>
 
             <div className="mb-8">

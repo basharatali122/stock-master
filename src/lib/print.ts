@@ -24,10 +24,11 @@ export const safeText = (text: string | number | null | undefined): string => {
 
 // Company information for printing
 export const COMPANY_INFO = {
-  name: 'AR Traders',
-  address: 'U Bank Street, Qadirabad, Kasur',
-  phone1: '+92 322 6675195',
-  phone2: '+92 304 4362762',
+  name: 'ALAM TRADER',
+  address: 'Hamza Town, Near Bhatti Hospital, Bypass Kasur',
+  phone1: '0321-4480088',
+  phone2: '',
+  contactLine: 'Prop: MEHAR M. SALEEM AKBAR | Ph: 0321-4480088',
 };
 
 export const printContent = (content: string, title: string) => {
