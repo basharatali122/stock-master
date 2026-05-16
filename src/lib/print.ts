@@ -27,7 +27,8 @@ export const COMPANY_INFO = {
   name: 'ALAM TRADER',
   address: 'Hamza Town, Near Bhatti Hospital, Bypass Kasur',
   phone1: '0321-4480088',
-  phone2: 'MEHAR M. SALEEM AKBAR',
+  phone2: '',
+  contactLine: 'Prop: MEHAR M. SALEEM AKBAR | Ph: 0321-4480088',
 };
 
 export const printContent = (content: string, title: string) => {
