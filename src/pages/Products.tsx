@@ -23,8 +23,8 @@ interface Product {
   created_at: string;
 }
 
-const categories = ['All', 'Biscuits', 'Toffees', 'Candies', 'Snacks', 'Beverages', 'Other'];
-const brands = ["Chip n' Dip", 'Friendz', 'More Cookies', 'Peanut Bite', 'Zeera Club', 'Tasteland Nimko', 'Aktive Energy', 'Anytime Waffer', 'Other'];
+const categories = ['All', 'Candy', 'Nimko', 'Cake', 'Bunty', 'Chocolate', 'Toffees', 'Other'];
+const brands = ['Onest Food', 'U.S Food', 'R.K Product', 'Other'];
 const packTypes = ['Family Pack', 'Half Pack', 'Mini Half Pack', 'Snack Pack', 'Tikki Pack'];
 
 const Products: React.FC = () => {
