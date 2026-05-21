@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Search, Check, X, UserCheck, UserX, Trash2, User as UserIcon, Loader2 } from 'lucide-react';
+import { Search, Check, X, UserCheck, UserX, Trash2, User as UserIcon, Loader2, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 type UserStatus = 'pending' | 'approved' | 'rejected' | 'inactive';
