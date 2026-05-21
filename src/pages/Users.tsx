@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
-import { Search, Check, X, UserCheck, UserX, Trash2, User as UserIcon, Loader2 } from 'lucide-react';
+import { Search, Check, X, UserCheck, UserX, Trash2, User as UserIcon, Loader2, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 type UserStatus = 'pending' | 'approved' | 'rejected' | 'inactive';
@@ -25,6 +25,32 @@ const Users: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
+  const [resetTarget, setResetTarget] = useState<UserProfile | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-user-password', {
+        body: { user_id: resetTarget.user_id, new_password: newPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Password reset for ${resetTarget.full_name}`);
+      setResetTarget(null);
+      setNewPassword('');
+    } catch (error: any) {
+      toast.error('Failed to reset password: ' + error.message);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -176,6 +202,11 @@ const Users: React.FC = () => {
             </button>
           )}
           {item.role !== 'admin' && (
+            <button onClick={() => { setResetTarget(item); setNewPassword(''); }} className="rounded-lg p-2 hover:bg-primary/10" title="Reset Password">
+              <KeyRound className="h-4 w-4 text-primary" />
+            </button>
+          )}
+          {item.role !== 'admin' && (
             <button onClick={() => deleteUser(item)} className="rounded-lg p-2 hover:bg-destructive/10" title="Delete">
               <Trash2 className="h-4 w-4 text-destructive" />
             </button>
@@ -233,6 +264,30 @@ const Users: React.FC = () => {
       )}
 
       <DataTable columns={columns} data={filteredUsers} keyExtractor={(item) => item.id} emptyMessage="No users found" />
+
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !resetting && setResetTarget(null)}>
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-foreground">Reset Password</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Set a new password for <span className="font-medium text-foreground">{resetTarget.full_name}</span> ({resetTarget.email})</p>
+            <input
+              type="text"
+              autoFocus
+              placeholder="New password (min 6 chars)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="input-field mt-4 w-full"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleResetPassword(); }}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setResetTarget(null)} disabled={resetting} className="rounded-lg bg-secondary px-4 py-2 text-sm font-medium hover:bg-secondary/80">Cancel</button>
+              <button onClick={handleResetPassword} disabled={resetting} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                {resetting ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
