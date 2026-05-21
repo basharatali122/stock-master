@@ -264,6 +264,30 @@ const Users: React.FC = () => {
       )}
 
       <DataTable columns={columns} data={filteredUsers} keyExtractor={(item) => item.id} emptyMessage="No users found" />
+
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !resetting && setResetTarget(null)}>
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-foreground">Reset Password</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Set a new password for <span className="font-medium text-foreground">{resetTarget.full_name}</span> ({resetTarget.email})</p>
+            <input
+              type="text"
+              autoFocus
+              placeholder="New password (min 6 chars)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="input-field mt-4 w-full"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleResetPassword(); }}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setResetTarget(null)} disabled={resetting} className="rounded-lg bg-secondary px-4 py-2 text-sm font-medium hover:bg-secondary/80">Cancel</button>
+              <button onClick={handleResetPassword} disabled={resetting} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                {resetting ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
