@@ -202,6 +202,11 @@ const Users: React.FC = () => {
             </button>
           )}
           {item.role !== 'admin' && (
+            <button onClick={() => { setResetTarget(item); setNewPassword(''); }} className="rounded-lg p-2 hover:bg-primary/10" title="Reset Password">
+              <KeyRound className="h-4 w-4 text-primary" />
+            </button>
+          )}
+          {item.role !== 'admin' && (
             <button onClick={() => deleteUser(item)} className="rounded-lg p-2 hover:bg-destructive/10" title="Delete">
               <Trash2 className="h-4 w-4 text-destructive" />
             </button>
