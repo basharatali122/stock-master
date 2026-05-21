@@ -25,6 +25,32 @@ const Users: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
+  const [resetTarget, setResetTarget] = useState<UserProfile | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-user-password', {
+        body: { user_id: resetTarget.user_id, new_password: newPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Password reset for ${resetTarget.full_name}`);
+      setResetTarget(null);
+      setNewPassword('');
+    } catch (error: any) {
+      toast.error('Failed to reset password: ' + error.message);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
