@@ -405,7 +405,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <td style="text-align: center;">${item.productCode || globalIndex}</td>
             <td>${safeText(productDesc)}</td>
             <td style="text-align: center;">Box</td>
-            <td style="text-align: center;">${item.totalQuantity}</td>
+            <td style="text-align: center;">${item.totalQuantity} <span style="color:#555;">(${formatCartonDecimal(item.totalQuantity, item.boxesPerCarton)})</span></td>
             <td style="text-align: center;">${item.cartons}</td>
             <td style="text-align: center;">${item.boxes}</td>
             <td style="text-align: right;">${item.grossAmount.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -417,7 +417,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
       loadHtml += `
         <tr class="group-total" style="font-weight: bold; background: #f9f9f9;">
           <td colspan="3" style="text-align: left;">Total</td>
-          <td style="text-align: center;">${group.groupTotal.quantity}</td>
+          <td style="text-align: center;">${group.groupTotal.quantity} <span style="color:#555;">(${formatCartonDecimal(group.groupTotal.quantity, group.boxesPerCarton)})</span></td>
           <td style="text-align: center;">${group.groupTotal.cartons}</td>
           <td style="text-align: center;">${group.groupTotal.boxes}</td>
           <td style="text-align: right;">${group.groupTotal.amount.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -537,7 +537,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <td style="text-align: center;">${item.productCode || globalIndex}</td>
             <td>${safeText(productDesc)}</td>
             <td style="text-align: center;">Box</td>
-            <td style="text-align: center;">${item.totalQuantity}</td>
+            <td style="text-align: center;">${item.totalQuantity} <span style="color:#555;">(${formatCartonDecimal(item.totalQuantity, item.boxesPerCarton)})</span></td>
             <td style="text-align: center;">${item.cartons}</td>
             <td style="text-align: center;">${item.boxes}</td>
             <td style="text-align: right;">${item.grossAmount.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -548,7 +548,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
       loadHtml += `
         <tr class="group-total" style="font-weight: bold; background: #f9f9f9;">
           <td colspan="3" style="text-align: left;">Total</td>
-          <td style="text-align: center;">${group.groupTotal.quantity}</td>
+          <td style="text-align: center;">${group.groupTotal.quantity} <span style="color:#555;">(${formatCartonDecimal(group.groupTotal.quantity, group.boxesPerCarton)})</span></td>
           <td style="text-align: center;">${group.groupTotal.cartons}</td>
           <td style="text-align: center;">${group.groupTotal.boxes}</td>
           <td style="text-align: right;">${group.groupTotal.amount.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -729,7 +729,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             </div>
             <div>
               <span className="text-muted-foreground">Total Qty:</span>
-              <span className="ml-2 font-medium">{totals.totalCartons} Ctn - {totals.totalBoxes} Box</span>
+              <span className="ml-2 font-medium">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({formatCartonDecimal((totals.totalCartons * (bookerBreakdown.defaultBpc || 24)) + totals.totalBoxes, bookerBreakdown.defaultBpc || 24)})</span>
             </div>
           </div>
         </div>
