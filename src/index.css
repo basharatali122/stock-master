@@ -195,7 +195,7 @@
   }
 
   .nav-link-active {
-    @apply bg-sidebar-accent text-sidebar-foreground font-medium;
+    @apply bg-sidebar-accent text-sidebar-accent-foreground font-medium;
   }
 
   .badge-pending {
