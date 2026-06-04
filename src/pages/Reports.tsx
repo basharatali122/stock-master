@@ -77,6 +77,7 @@ const Reports: React.FC = () => {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [routePerformance, setRoutePerformance] = useState<RoutePerformance[]>([]);
   const [bookerDiscounts, setBookerDiscounts] = useState<BookerDiscount[]>([]);
+  const [bookerCartons, setBookerCartons] = useState<BookerCartonStat[]>([]);
 
   const getDateRange = () => {
     const now = new Date();
