@@ -509,6 +509,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           </div>
         ) : (
           <div className="space-y-3">
+            <SalesmanSelect value={selectedSalesman} onChange={setSelectedSalesman} />
             {/* Routes breakdown */}
             <div className="p-3 rounded-lg bg-muted/30 mb-4">
               <p className="text-sm font-medium mb-2">Routes Breakdown:</p>
