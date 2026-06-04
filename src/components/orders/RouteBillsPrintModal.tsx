@@ -180,6 +180,7 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
         </div>
 
         <div className="space-y-4">
+          <SalesmanSelect value={selectedSalesman} onChange={setSelectedSalesman} />
           {/* Summary */}
           <div className="rounded-lg bg-muted/50 p-4 space-y-3">
             <div className="flex items-center gap-3">
