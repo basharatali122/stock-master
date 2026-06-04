@@ -35,6 +35,16 @@ interface BookerDiscount {
   discount_count: number;
 }
 
+interface BookerCartonStat {
+  booker_id: string;
+  booker_name: string;
+  total_boxes: number;
+  cartons: number;
+  remainder_boxes: number;
+  orders: number;
+  percent: number;
+}
+
 interface ReportStats {
   totalRevenue: number;
   totalOrders: number;
