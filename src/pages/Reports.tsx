@@ -280,6 +280,61 @@ const Reports: React.FC = () => {
         setBookerDiscounts(bookerDiscountList);
       }
 
+      // Monthly Booker Cartons/Boxes Sold (current month, regardless of selected range)
+      try {
+        const monthStart2 = startOfMonth(new Date()).toISOString();
+        const { data: monthOrders } = await supabase
+          .from('orders')
+          .select('id, booker_id, order_items(quantity, product_id, products(boxes_per_carton))')
+          .gte('created_at', monthStart2)
+          .neq('status', 'cancelled');
+
+        if (monthOrders && monthOrders.length) {
+          const bookerIds2 = [...new Set(monthOrders.map((o: any) => o.booker_id).filter(Boolean))];
+          const { data: bookerProfiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', bookerIds2);
+          const nameMap = new Map(bookerProfiles?.map(p => [p.user_id, p.full_name]) || []);
+
+          const agg = new Map<string, { boxes: number; orders: number; bpcSum: number; bpcCount: number }>();
+          let grandBoxes = 0;
+          monthOrders.forEach((o: any) => {
+            const bid = o.booker_id || 'unknown';
+            const existing = agg.get(bid) || { boxes: 0, orders: 0, bpcSum: 0, bpcCount: 0 };
+            existing.orders += 1;
+            (o.order_items || []).forEach((it: any) => {
+              const qty = it.quantity || 0;
+              existing.boxes += qty;
+              grandBoxes += qty;
+              const bpc = it.products?.boxes_per_carton || 24;
+              existing.bpcSum += bpc;
+              existing.bpcCount += 1;
+            });
+            agg.set(bid, existing);
+          });
+
+          const list: BookerCartonStat[] = Array.from(agg.entries()).map(([id, d]) => {
+            const avgBpc = d.bpcCount > 0 ? Math.round(d.bpcSum / d.bpcCount) : 24;
+            return {
+              booker_id: id,
+              booker_name: nameMap.get(id) || 'Unknown',
+              total_boxes: d.boxes,
+              cartons: Math.floor(d.boxes / avgBpc),
+              remainder_boxes: d.boxes % avgBpc,
+              orders: d.orders,
+              percent: grandBoxes > 0 ? (d.boxes / grandBoxes) * 100 : 0,
+            };
+          }).sort((a, b) => b.total_boxes - a.total_boxes);
+
+          setBookerCartons(list);
+        } else {
+          setBookerCartons([]);
+        }
+      } catch (e) {
+        // non-fatal
+      }
+
       setLastUpdated(new Date());
     } catch (error: any) {
       toast.error('Failed to load report data: ' + error.message);
