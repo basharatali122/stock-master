@@ -6,6 +6,7 @@ import ProductSaleSummary from '@/components/reports/ProductSaleSummary';
 import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi, Package, Percent, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
+import { formatCartonDecimal } from '@/lib/print';
 
 interface DailySales {
   day: string;
