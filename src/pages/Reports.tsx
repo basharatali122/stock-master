@@ -760,6 +760,61 @@ const Reports: React.FC = () => {
         )}
       </div>
 
+      {/* Monthly Booker Cartons / Boxes Sold */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Package className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Monthly Cartons / Boxes Sold by Booker</h3>
+          </div>
+          <span className="text-sm text-muted-foreground">Current Month</span>
+        </div>
+
+        {bookerCartons.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-4">Order Booker</th>
+                  <th className="py-2 pr-4 text-center">Orders</th>
+                  <th className="py-2 pr-4 text-center">Cartons</th>
+                  <th className="py-2 pr-4 text-center">Boxes</th>
+                  <th className="py-2 pr-4 text-center">Total Boxes</th>
+                  <th className="py-2 pr-4 text-right">% Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookerCartons.map(b => (
+                  <tr key={b.booker_id} className="border-b border-border/50">
+                    <td className="py-3 pr-4 font-medium">{b.booker_name}</td>
+                    <td className="py-3 pr-4 text-center">{b.orders}</td>
+                    <td className="py-3 pr-4 text-center font-semibold text-primary">{b.cartons}</td>
+                    <td className="py-3 pr-4 text-center">{b.remainder_boxes}</td>
+                    <td className="py-3 pr-4 text-center">{b.total_boxes}</td>
+                    <td className="py-3 pr-4 text-right font-semibold">{b.percent.toFixed(2)}%</td>
+                  </tr>
+                ))}
+                <tr className="font-bold bg-muted/50">
+                  <td className="py-3 pr-4">Grand Total</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.orders, 0)}</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.cartons, 0)}</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.remainder_boxes, 0)}</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.total_boxes, 0)}</td>
+                  <td className="py-3 pr-4 text-right">100.00%</td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="text-xs text-muted-foreground mt-3">
+              * Cartons calculated using each product's own boxes-per-carton (averaged where multiple products differ).
+            </p>
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No orders recorded this month</p>
+        )}
+      </div>
+
+
+
       {/* Product Sale Summary */}
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="mb-6 flex items-center justify-between">
