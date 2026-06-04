@@ -279,7 +279,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             </td>
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
-              <div style="margin-top: 10px;"><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div style="margin-top: 10px;"><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
@@ -380,7 +380,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
               <div style="margin-top: 5px;"><strong>Route:</strong> ${safeText(routeName)}</div>
-              <div><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
@@ -511,7 +511,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             </td>
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
-              <div style="margin-top: 10px;"><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div style="margin-top: 10px;"><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
@@ -553,7 +553,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
               <div style="margin-top: 5px;"><strong>Route:</strong> ${safeText(routeName)}</div>
-              <div><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
