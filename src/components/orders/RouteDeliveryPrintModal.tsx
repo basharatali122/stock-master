@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, Printer, FileText, Package } from 'lucide-react';
 import { printContent, formatCurrencyForPrint, safeText, COMPANY_INFO } from '@/lib/print';
+import { SalesmanSelect } from './SalesmanSelect';
 
 interface OrderItem {
   id: string;
@@ -63,6 +64,8 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
   bookerName,
   onClose,
 }) => {
+  const [selectedSalesman, setSelectedSalesman] = useState<string>('');
+  const displaySalesman = selectedSalesman || bookerName || 'N/A';
   // Calculate Bills Summary (Shops list with their orders)
   const billsSummary = useMemo(() => {
     const shopOrders = new Map<string, { 
