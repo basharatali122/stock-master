@@ -477,6 +477,8 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </tbody>
       </table>
       
+      ${bookerBreakdownHtml()}
+
       <div style="margin-top: 20px; font-size: 10px; text-align: left;">
         ${new Date().toLocaleString()}
       </div>
