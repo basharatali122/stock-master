@@ -232,6 +232,73 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
     return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalQuantity, totalGross, totalDiscount };
   }, [orders, loadForm, billsSummary]);
 
+  // Booker-wise box/carton breakdown with % share
+  const bookerBreakdown = useMemo(() => {
+    const map = new Map<string, { name: string; totalBoxes: number; cartons: number; remBoxes: number }>();
+    let grandTotalBoxes = 0;
+    orders.forEach(order => {
+      const bookerId = order.booker_id || 'unknown';
+      const name = order.booker_name || selectedSalesman || 'Unknown';
+      const existing = map.get(bookerId) || { name, totalBoxes: 0, cartons: 0, remBoxes: 0 };
+      order.order_items?.forEach(item => {
+        existing.totalBoxes += item.quantity || 0;
+        grandTotalBoxes += item.quantity || 0;
+      });
+      map.set(bookerId, existing);
+    });
+    // Use a representative boxes_per_carton (most common) for breakdown display
+    const defaultBpc = products[0]?.boxes_per_carton || 24;
+    const rows = Array.from(map.values()).map(b => ({
+      ...b,
+      cartons: Math.floor(b.totalBoxes / defaultBpc),
+      remBoxes: b.totalBoxes % defaultBpc,
+      percent: grandTotalBoxes > 0 ? (b.totalBoxes / grandTotalBoxes) * 100 : 0,
+    })).sort((a, b) => b.totalBoxes - a.totalBoxes);
+    return { rows, grandTotalBoxes, defaultBpc };
+  }, [orders, products, selectedSalesman]);
+
+  const bookerBreakdownHtml = () => {
+    if (bookerBreakdown.rows.length === 0) return '';
+    const rowsHtml = bookerBreakdown.rows.map((b, i) => `
+      <tr>
+        <td style="text-align:center;">${i + 1}</td>
+        <td>${safeText(b.name)}</td>
+        <td style="text-align:center;">${b.cartons}</td>
+        <td style="text-align:center;">${b.remBoxes}</td>
+        <td style="text-align:center;">${b.totalBoxes}</td>
+        <td style="text-align:right;">${b.percent.toFixed(2)}%</td>
+      </tr>
+    `).join('');
+    return `
+      <div style="margin-top: 18px;">
+        <h3 style="font-size: 13px; margin-bottom: 6px;">Booker-wise Box / Carton Share</h3>
+        <table class="load-table" style="font-size: 11px;">
+          <thead>
+            <tr>
+              <th style="width: 40px;">Sr.</th>
+              <th>Order Booker</th>
+              <th style="width: 80px;">Cartons</th>
+              <th style="width: 80px;">Boxes</th>
+              <th style="width: 90px;">Total Boxes</th>
+              <th style="width: 80px; text-align:right;">% Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            <tr style="font-weight:bold; background:#e5e5e5;">
+              <td colspan="4" style="text-align:left;">Grand Total</td>
+              <td style="text-align:center;">${bookerBreakdown.grandTotalBoxes}</td>
+              <td style="text-align:right;">100.00%</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size:10px; color:#666; margin-top:4px;">
+          * Cartons calculated using ${bookerBreakdown.defaultBpc} boxes per carton.
+        </div>
+      </div>
+    `;
+  };
+
   const printBillsSummary = () => {
     const today = new Date().toLocaleDateString();
     
@@ -410,6 +477,8 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </tbody>
       </table>
       
+      ${bookerBreakdownHtml()}
+
       <div style="margin-top: 20px; font-size: 10px; text-align: left;">
         ${new Date().toLocaleString()}
       </div>
@@ -583,6 +652,8 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </tbody>
       </table>
       
+      ${bookerBreakdownHtml()}
+
       <div style="margin-top: 20px; font-size: 10px; text-align: left;">
         ${new Date().toLocaleString()}
       </div>

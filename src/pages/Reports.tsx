@@ -35,6 +35,16 @@ interface BookerDiscount {
   discount_count: number;
 }
 
+interface BookerCartonStat {
+  booker_id: string;
+  booker_name: string;
+  total_boxes: number;
+  cartons: number;
+  remainder_boxes: number;
+  orders: number;
+  percent: number;
+}
+
 interface ReportStats {
   totalRevenue: number;
   totalOrders: number;
@@ -67,6 +77,7 @@ const Reports: React.FC = () => {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [routePerformance, setRoutePerformance] = useState<RoutePerformance[]>([]);
   const [bookerDiscounts, setBookerDiscounts] = useState<BookerDiscount[]>([]);
+  const [bookerCartons, setBookerCartons] = useState<BookerCartonStat[]>([]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -267,6 +278,61 @@ const Reports: React.FC = () => {
           .sort((a, b) => b.total_discount - a.total_discount);
 
         setBookerDiscounts(bookerDiscountList);
+      }
+
+      // Monthly Booker Cartons/Boxes Sold (current month, regardless of selected range)
+      try {
+        const monthStart2 = startOfMonth(new Date()).toISOString();
+        const { data: monthOrders } = await supabase
+          .from('orders')
+          .select('id, booker_id, order_items(quantity, product_id, products(boxes_per_carton))')
+          .gte('created_at', monthStart2)
+          .neq('status', 'cancelled');
+
+        if (monthOrders && monthOrders.length) {
+          const bookerIds2 = [...new Set(monthOrders.map((o: any) => o.booker_id).filter(Boolean))];
+          const { data: bookerProfiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', bookerIds2);
+          const nameMap = new Map(bookerProfiles?.map(p => [p.user_id, p.full_name]) || []);
+
+          const agg = new Map<string, { boxes: number; orders: number; bpcSum: number; bpcCount: number }>();
+          let grandBoxes = 0;
+          monthOrders.forEach((o: any) => {
+            const bid = o.booker_id || 'unknown';
+            const existing = agg.get(bid) || { boxes: 0, orders: 0, bpcSum: 0, bpcCount: 0 };
+            existing.orders += 1;
+            (o.order_items || []).forEach((it: any) => {
+              const qty = it.quantity || 0;
+              existing.boxes += qty;
+              grandBoxes += qty;
+              const bpc = it.products?.boxes_per_carton || 24;
+              existing.bpcSum += bpc;
+              existing.bpcCount += 1;
+            });
+            agg.set(bid, existing);
+          });
+
+          const list: BookerCartonStat[] = Array.from(agg.entries()).map(([id, d]) => {
+            const avgBpc = d.bpcCount > 0 ? Math.round(d.bpcSum / d.bpcCount) : 24;
+            return {
+              booker_id: id,
+              booker_name: nameMap.get(id) || 'Unknown',
+              total_boxes: d.boxes,
+              cartons: Math.floor(d.boxes / avgBpc),
+              remainder_boxes: d.boxes % avgBpc,
+              orders: d.orders,
+              percent: grandBoxes > 0 ? (d.boxes / grandBoxes) * 100 : 0,
+            };
+          }).sort((a, b) => b.total_boxes - a.total_boxes);
+
+          setBookerCartons(list);
+        } else {
+          setBookerCartons([]);
+        }
+      } catch (e) {
+        // non-fatal
       }
 
       setLastUpdated(new Date());
@@ -693,6 +759,61 @@ const Reports: React.FC = () => {
           <p className="text-center text-muted-foreground py-8">No discounts recorded this month</p>
         )}
       </div>
+
+      {/* Monthly Booker Cartons / Boxes Sold */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Package className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Monthly Cartons / Boxes Sold by Booker</h3>
+          </div>
+          <span className="text-sm text-muted-foreground">Current Month</span>
+        </div>
+
+        {bookerCartons.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-4">Order Booker</th>
+                  <th className="py-2 pr-4 text-center">Orders</th>
+                  <th className="py-2 pr-4 text-center">Cartons</th>
+                  <th className="py-2 pr-4 text-center">Boxes</th>
+                  <th className="py-2 pr-4 text-center">Total Boxes</th>
+                  <th className="py-2 pr-4 text-right">% Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookerCartons.map(b => (
+                  <tr key={b.booker_id} className="border-b border-border/50">
+                    <td className="py-3 pr-4 font-medium">{b.booker_name}</td>
+                    <td className="py-3 pr-4 text-center">{b.orders}</td>
+                    <td className="py-3 pr-4 text-center font-semibold text-primary">{b.cartons}</td>
+                    <td className="py-3 pr-4 text-center">{b.remainder_boxes}</td>
+                    <td className="py-3 pr-4 text-center">{b.total_boxes}</td>
+                    <td className="py-3 pr-4 text-right font-semibold">{b.percent.toFixed(2)}%</td>
+                  </tr>
+                ))}
+                <tr className="font-bold bg-muted/50">
+                  <td className="py-3 pr-4">Grand Total</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.orders, 0)}</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.cartons, 0)}</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.remainder_boxes, 0)}</td>
+                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.total_boxes, 0)}</td>
+                  <td className="py-3 pr-4 text-right">100.00%</td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="text-xs text-muted-foreground mt-3">
+              * Cartons calculated using each product's own boxes-per-carton (averaged where multiple products differ).
+            </p>
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No orders recorded this month</p>
+        )}
+      </div>
+
+
 
       {/* Product Sale Summary */}
       <div className="rounded-xl border border-border bg-card p-6">
