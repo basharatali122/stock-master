@@ -244,7 +244,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
             </td>
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
-              <div style="margin-top: 5px;"><small>Routes: ${safeText(routesList)}</small></div>
+              <div style="margin-top: 5px;"><small>Routes: ${safeText(routesList)}</small></div>${salesmanLine}
             </td>
           </tr>
         </table>
@@ -303,7 +303,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
               <strong>Type:</strong> Admin Orders<br/>
-              <strong>Routes:</strong> ${safeText(routesList)}
+              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}
             </td>
             <td style="border: none; text-align: right;">
               <strong>Date:</strong> ${safeText(displayDate)}<br/>
@@ -392,7 +392,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
               <strong>Type:</strong> Admin Orders<br/>
-              <strong>Routes:</strong> ${safeText(routesList)}
+              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}
             </td>
             <td style="border: none; text-align: right;">
               <strong>Date:</strong> ${safeText(displayDate)}<br/>
@@ -443,7 +443,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
               <strong>Type:</strong> Admin Orders<br/>
-              <strong>Routes:</strong> ${safeText(routesList)}
+              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}
             </td>
             <td style="border: none; text-align: right;">
               <strong>Date:</strong> ${safeText(displayDate)}<br/>
