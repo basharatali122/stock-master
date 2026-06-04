@@ -42,6 +42,7 @@ interface BookerCartonStat {
   total_boxes: number;
   cartons: number;
   remainder_boxes: number;
+  avg_bpc: number;
   orders: number;
   percent: number;
 }
@@ -323,6 +324,7 @@ const Reports: React.FC = () => {
               total_boxes: d.boxes,
               cartons: Math.floor(d.boxes / avgBpc),
               remainder_boxes: d.boxes % avgBpc,
+              avg_bpc: avgBpc,
               orders: d.orders,
               percent: grandBoxes > 0 ? (d.boxes / grandBoxes) * 100 : 0,
             };
