@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, Printer, FileText, Package, Calendar } from 'lucide-react';
 import { printContent, formatCurrencyForPrint, safeText, COMPANY_INFO } from '@/lib/print';
+import { SalesmanSelect } from './SalesmanSelect';
 
 interface OrderItem {
   id: string;
@@ -59,6 +60,10 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
   selectedDate = 'Selected Period',
   onClose,
 }) => {
+  const [selectedSalesman, setSelectedSalesman] = useState<string>('');
+  const salesmanLine = selectedSalesman
+    ? `<div style="margin-top: 5px;"><strong>Salesman:</strong> ${selectedSalesman}</div>`
+    : '';
   // Use the pre-filtered orders directly (already filtered by date in parent)
   const todayOrders = orders;
 
