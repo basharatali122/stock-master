@@ -263,8 +263,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
       <tr>
         <td style="text-align:center;">${i + 1}</td>
         <td>${safeText(b.name)}</td>
-        <td style="text-align:center;">${b.cartons}</td>
-        <td style="text-align:center;">${b.remBoxes}</td>
+        <td style="text-align:center;">${formatCartonDecimal(b.totalBoxes, bookerBreakdown.defaultBpc)}</td>
         <td style="text-align:center;">${b.totalBoxes}</td>
         <td style="text-align:right;">${b.percent.toFixed(2)}%</td>
       </tr>
@@ -277,8 +276,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <tr>
               <th style="width: 40px;">Sr.</th>
               <th>Order Booker</th>
-              <th style="width: 80px;">Cartons</th>
-              <th style="width: 80px;">Boxes</th>
+              <th style="width: 100px;">Cartons (Ctn.Box)</th>
               <th style="width: 90px;">Total Boxes</th>
               <th style="width: 80px; text-align:right;">% Share</th>
             </tr>
@@ -286,14 +284,15 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
           <tbody>
             ${rowsHtml}
             <tr style="font-weight:bold; background:#e5e5e5;">
-              <td colspan="4" style="text-align:left;">Grand Total</td>
+              <td colspan="2" style="text-align:left;">Grand Total</td>
+              <td style="text-align:center;">${formatCartonDecimal(bookerBreakdown.grandTotalBoxes, bookerBreakdown.defaultBpc)}</td>
               <td style="text-align:center;">${bookerBreakdown.grandTotalBoxes}</td>
               <td style="text-align:right;">100.00%</td>
             </tr>
           </tbody>
         </table>
         <div style="font-size:10px; color:#666; margin-top:4px;">
-          * Cartons calculated using ${bookerBreakdown.defaultBpc} boxes per carton.
+          * Cartons shown in decimal form (e.g. 1.27 = 1 full carton + partial). Based on ${bookerBreakdown.defaultBpc} boxes/carton.
         </div>
       </div>
     `;
