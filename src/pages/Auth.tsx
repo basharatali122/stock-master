@@ -136,48 +136,48 @@ const Auth: React.FC = () => {
     <div className="min-h-screen bg-background">
       <div className="flex min-h-screen">
         {/* Left Panel - Branding */}
-        <div className="hidden w-1/2 bg-primary lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <div className="hidden w-1/2 bg-gradient-to-br from-slate-50 via-white to-emerald-50/40 lg:flex lg:flex-col lg:justify-between lg:p-12 border-r border-slate-100">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-foreground/20">
-                <Package className="h-7 w-7 text-primary-foreground" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600/10">
+                <Package className="h-7 w-7 text-emerald-700" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-primary-foreground">ALAM TRADER</h1>
-                <p className="text-sm text-primary-foreground/80">Distribution Management System</p>
+                <h1 className="text-2xl font-bold text-slate-800">ALAM TRADER</h1>
+                <p className="text-sm text-slate-500">Distribution Management System</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-6">
-            <h2 className="text-4xl font-bold leading-tight text-primary-foreground">
+            <h2 className="text-4xl font-bold leading-tight text-slate-800">
               Streamline Your Distribution Operations
             </h2>
-            <p className="text-lg text-primary-foreground/80">
-              Manage routes, orders, inventory, and financials all in one place. 
+            <p className="text-lg text-slate-500">
+              Manage routes, orders, inventory, and financials all in one place.
               Built for efficiency, designed for growth.
             </p>
             <div className="grid grid-cols-2 gap-4 pt-4">
-              <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">{stats.shops.toLocaleString()}</p>
-                <p className="text-sm text-primary-foreground/70">Active Shops</p>
+              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
+                <p className="text-3xl font-bold text-emerald-700">{stats.shops.toLocaleString()}</p>
+                <p className="text-sm text-slate-500">Active Shops</p>
               </div>
-              <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">{stats.routes}</p>
-                <p className="text-sm text-primary-foreground/70">Routes Covered</p>
+              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
+                <p className="text-3xl font-bold text-emerald-700">{stats.routes}</p>
+                <p className="text-sm text-slate-500">Routes Covered</p>
               </div>
-              <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">{stats.orders.toLocaleString()}</p>
-                <p className="text-sm text-primary-foreground/70">Total Orders</p>
+              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
+                <p className="text-3xl font-bold text-emerald-700">{stats.orders.toLocaleString()}</p>
+                <p className="text-sm text-slate-500">Total Orders</p>
               </div>
-              <div className="rounded-xl bg-primary-foreground/10 p-4">
-                <p className="text-3xl font-bold text-primary-foreground">{stats.deliveryRate}%</p>
-                <p className="text-sm text-primary-foreground/70">Delivery Rate</p>
+              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
+                <p className="text-3xl font-bold text-emerald-700">{stats.deliveryRate}%</p>
+                <p className="text-sm text-slate-500">Delivery Rate</p>
               </div>
             </div>
           </div>
 
-          <p className="text-sm text-primary-foreground/60">
+          <p className="text-sm text-slate-400">
             © 2025 ALAM TRADER. All rights reserved.
           </p>
         </div>

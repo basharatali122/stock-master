@@ -57,16 +57,16 @@
 
     --radius: 0.625rem;
 
-    /* Sidebar - Black with Green accents */
-    --sidebar-background: 0 0% 6%;
-    --sidebar-foreground: 142 30% 92%;
-    --sidebar-primary: 142 71% 45%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 0 0% 12%;
-    --sidebar-accent-foreground: 142 71% 70%;
-    --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 142 71% 45%;
-    --sidebar-muted: 0 0% 55%;
+    /* Sidebar - Clean White Professional */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 210 20% 20%;
+    --sidebar-primary: 142 71% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 142 60% 95%;
+    --sidebar-accent-foreground: 142 71% 25%;
+    --sidebar-border: 210 20% 90%;
+    --sidebar-ring: 142 71% 38%;
+    --sidebar-muted: 210 10% 55%;
 
     /* Chart Colors */
     --chart-1: 142 71% 45%;
@@ -126,15 +126,15 @@
     --input: 0 0% 18%;
     --ring: 142 71% 45%;
 
-    --sidebar-background: 0 0% 4%;
-    --sidebar-foreground: 142 30% 92%;
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 210 20% 90%;
     --sidebar-primary: 142 71% 45%;
     --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 0 0% 10%;
-    --sidebar-accent-foreground: 142 71% 70%;
-    --sidebar-border: 0 0% 15%;
+    --sidebar-accent: 142 30% 18%;
+    --sidebar-accent-foreground: 142 60% 80%;
+    --sidebar-border: 220 15% 20%;
     --sidebar-ring: 142 71% 45%;
-    --sidebar-muted: 0 0% 65%;
+    --sidebar-muted: 210 10% 55%;
   }
 
 }
@@ -195,7 +195,7 @@
   }
 
   .nav-link-active {
-    @apply bg-sidebar-accent text-sidebar-foreground font-medium;
+    @apply bg-sidebar-accent text-sidebar-accent-foreground font-medium;
   }
 
   .badge-pending {
