@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { X, Printer, FileText, Package } from 'lucide-react';
-import { printContent, formatCurrencyForPrint, safeText, COMPANY_INFO } from '@/lib/print';
+import { printContent, formatCurrencyForPrint, safeText, COMPANY_INFO, formatCartonDecimal } from '@/lib/print';
 import { SalesmanSelect } from './SalesmanSelect';
 
 interface OrderItem {
