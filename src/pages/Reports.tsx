@@ -6,6 +6,7 @@ import ProductSaleSummary from '@/components/reports/ProductSaleSummary';
 import { Calendar, Download, TrendingUp, DollarSign, ShoppingCart, Store, BarChart3, Loader2, RefreshCw, Wifi, Package, Percent, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
+import { formatCartonDecimal } from '@/lib/print';
 
 interface DailySales {
   day: string;
@@ -41,6 +42,7 @@ interface BookerCartonStat {
   total_boxes: number;
   cartons: number;
   remainder_boxes: number;
+  avg_bpc: number;
   orders: number;
   percent: number;
 }
@@ -322,6 +324,7 @@ const Reports: React.FC = () => {
               total_boxes: d.boxes,
               cartons: Math.floor(d.boxes / avgBpc),
               remainder_boxes: d.boxes % avgBpc,
+              avg_bpc: avgBpc,
               orders: d.orders,
               percent: grandBoxes > 0 ? (d.boxes / grandBoxes) * 100 : 0,
             };
@@ -777,7 +780,7 @@ const Reports: React.FC = () => {
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="py-2 pr-4">Order Booker</th>
                   <th className="py-2 pr-4 text-center">Orders</th>
-                  <th className="py-2 pr-4 text-center">Cartons</th>
+                  <th className="py-2 pr-4 text-center">Cartons (Ctn.Box)</th>
                   <th className="py-2 pr-4 text-center">Boxes</th>
                   <th className="py-2 pr-4 text-center">Total Boxes</th>
                   <th className="py-2 pr-4 text-right">% Share</th>
@@ -788,7 +791,7 @@ const Reports: React.FC = () => {
                   <tr key={b.booker_id} className="border-b border-border/50">
                     <td className="py-3 pr-4 font-medium">{b.booker_name}</td>
                     <td className="py-3 pr-4 text-center">{b.orders}</td>
-                    <td className="py-3 pr-4 text-center font-semibold text-primary">{b.cartons}</td>
+                    <td className="py-3 pr-4 text-center font-semibold text-primary">{formatCartonDecimal(b.total_boxes, b.avg_bpc)}</td>
                     <td className="py-3 pr-4 text-center">{b.remainder_boxes}</td>
                     <td className="py-3 pr-4 text-center">{b.total_boxes}</td>
                     <td className="py-3 pr-4 text-right font-semibold">{b.percent.toFixed(2)}%</td>
@@ -797,7 +800,11 @@ const Reports: React.FC = () => {
                 <tr className="font-bold bg-muted/50">
                   <td className="py-3 pr-4">Grand Total</td>
                   <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.orders, 0)}</td>
-                  <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.cartons, 0)}</td>
+                  <td className="py-3 pr-4 text-center">{(() => {
+                    const totalBoxes = bookerCartons.reduce((s, b) => s + b.total_boxes, 0);
+                    const avgBpc = bookerCartons.length > 0 ? Math.round(bookerCartons.reduce((s, b) => s + b.avg_bpc, 0) / bookerCartons.length) : 24;
+                    return formatCartonDecimal(totalBoxes, avgBpc);
+                  })()}</td>
                   <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.remainder_boxes, 0)}</td>
                   <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.total_boxes, 0)}</td>
                   <td className="py-3 pr-4 text-right">100.00%</td>
@@ -805,7 +812,7 @@ const Reports: React.FC = () => {
               </tbody>
             </table>
             <p className="text-xs text-muted-foreground mt-3">
-              * Cartons calculated using each product's own boxes-per-carton (averaged where multiple products differ).
+              * Cartons shown in decimal form (e.g. 1.27 = 1 full carton + ~5 boxes if pack is 18). Calculated using each product's own boxes-per-carton (averaged where products differ).
             </p>
           </div>
         ) : (

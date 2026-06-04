@@ -22,6 +22,20 @@ export const safeText = (text: string | number | null | undefined): string => {
   return escapeHtml(String(text));
 };
 
+/**
+ * Formats total boxes as cartons in decimal form (e.g. 23 boxes / 18 per carton = "1.27").
+ * The fractional part is the remainder boxes divided by boxes-per-carton, truncated to 2 digits.
+ * Examples: (23, 18) -> "1.27", (5, 18) -> "0.27", (48, 24) -> "2.00".
+ */
+export const formatCartonDecimal = (totalBoxes: number, boxesPerCarton: number = 24): string => {
+  const bpc = boxesPerCarton > 0 ? boxesPerCarton : 24;
+  const boxes = Math.max(0, Math.floor(totalBoxes || 0));
+  const cartons = Math.floor(boxes / bpc);
+  const remainder = boxes % bpc;
+  const frac = Math.floor((remainder / bpc) * 100);
+  return `${cartons}.${String(frac).padStart(2, '0')}`;
+};
+
 // Company information for printing
 export const COMPANY_INFO = {
   name: 'ALAM TRADER',
