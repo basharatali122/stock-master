@@ -18,20 +18,20 @@
     --popover: 0 0% 100%;
     --popover-foreground: 200 25% 12%;
 
-    /* Primary - Professional Emerald */
-    --primary: 158 64% 35%;
+    /* Primary - Light Fresh Green */
+    --primary: 152 55% 48%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft Slate */
-    --secondary: 150 20% 94%;
-    --secondary-foreground: 200 25% 18%;
+    /* Secondary - Soft Mint */
+    --secondary: 152 40% 94%;
+    --secondary-foreground: 152 50% 22%;
 
     /* Muted */
     --muted: 150 15% 95%;
     --muted-foreground: 200 12% 42%;
 
     /* Accent - Warm Orange */
-    --accent: 24 95% 53%;
+    --accent: 152 55% 48%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -39,7 +39,7 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Success - Light Green */
-    --success: 158 64% 42%;
+    --success: 152 55% 48%;
     --success-foreground: 0 0% 100%;
 
     /* Warning - Amber */
@@ -53,33 +53,33 @@
     /* Border & Input */
     --border: 150 15% 88%;
     --input: 150 15% 88%;
-    --ring: 158 64% 35%;
+    --ring: 152 55% 48%;
 
     --radius: 0.625rem;
 
     /* Sidebar - Clean White Professional */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 200 25% 20%;
-    --sidebar-primary: 158 64% 35%;
+    --sidebar-primary: 152 55% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 158 50% 95%;
-    --sidebar-accent-foreground: 158 64% 25%;
+    --sidebar-accent: 152 55% 95%;
+    --sidebar-accent-foreground: 152 60% 25%;
     --sidebar-border: 150 15% 90%;
-    --sidebar-ring: 158 64% 35%;
+    --sidebar-ring: 152 55% 48%;
     --sidebar-muted: 200 12% 50%;
 
     /* Chart Colors */
-    --chart-1: 158 64% 42%;
-    --chart-2: 24 95% 53%;
-    --chart-3: 190 75% 40%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 158 40% 60%;
+    --chart-1: 152 55% 48%;
+    --chart-2: 152 45% 65%;
+    --chart-3: 190 65% 50%;
+    --chart-4: 38 92% 55%;
+    --chart-5: 152 30% 75%;
 
     /* Gradient tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(158 64% 35%), hsl(158 64% 28%));
-    --gradient-accent: linear-gradient(135deg, hsl(24 95% 53%), hsl(20 90% 45%));
-    --gradient-success: linear-gradient(135deg, hsl(158 64% 42%), hsl(158 64% 52%));
-    --gradient-hero: linear-gradient(135deg, hsl(158 64% 30%), hsl(190 75% 35%));
+    --gradient-primary: linear-gradient(135deg, hsl(152 55% 48%), hsl(152 55% 40%));
+    --gradient-accent: linear-gradient(135deg, hsl(152 55% 55%), hsl(152 55% 42%));
+    --gradient-success: linear-gradient(135deg, hsl(152 55% 48%), hsl(152 55% 60%));
+    --gradient-hero: linear-gradient(135deg, hsl(152 55% 50%), hsl(190 65% 50%));
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(200 25% 12% / 0.05);

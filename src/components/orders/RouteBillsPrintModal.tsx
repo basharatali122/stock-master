@@ -1,6 +1,7 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { X, Printer, Receipt } from 'lucide-react';
 import { printContent, formatCurrencyForPrint, getStatusBadgeClass, safeText, COMPANY_INFO } from '@/lib/print';
+import { SalesmanSelect } from './SalesmanSelect';
 
 interface OrderItem {
   id: string;
@@ -34,6 +35,7 @@ interface RouteBillsPrintModalProps {
 }
 
 export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteBillsPrintModalProps) => {
+  const [selectedSalesman, setSelectedSalesman] = useState<string>('');
   const totals = useMemo(() => {
     const totalAmount = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
     const totalPaid = orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
@@ -97,7 +99,7 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
             </tr>
             ` : ''}
             <tr style="background: transparent;">
-              <td colspan="2" style="border: none; padding: 3px 0; font-size: 12px;"><strong>Booker:</strong> ${safeText(order.booker_name || 'N/A')}</td>
+              <td colspan="2" style="border: none; padding: 3px 0; font-size: 12px;"><strong>Salesman:</strong> ${safeText(selectedSalesman || order.booker_name || 'N/A')}</td>
             </tr>
           </table>
           
@@ -178,6 +180,7 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
         </div>
 
         <div className="space-y-4">
+          <SalesmanSelect value={selectedSalesman} onChange={setSelectedSalesman} />
           {/* Summary */}
           <div className="rounded-lg bg-muted/50 p-4 space-y-3">
             <div className="flex items-center gap-3">

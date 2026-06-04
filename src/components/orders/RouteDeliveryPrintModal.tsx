@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, Printer, FileText, Package } from 'lucide-react';
 import { printContent, formatCurrencyForPrint, safeText, COMPANY_INFO } from '@/lib/print';
+import { SalesmanSelect } from './SalesmanSelect';
 
 interface OrderItem {
   id: string;
@@ -63,6 +64,8 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
   bookerName,
   onClose,
 }) => {
+  const [selectedSalesman, setSelectedSalesman] = useState<string>('');
+  const displaySalesman = selectedSalesman || bookerName || 'N/A';
   // Calculate Bills Summary (Shops list with their orders)
   const billsSummary = useMemo(() => {
     const shopOrders = new Map<string, { 
@@ -276,7 +279,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             </td>
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
-              <div style="margin-top: 10px;"><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div style="margin-top: 10px;"><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
@@ -377,7 +380,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
               <div style="margin-top: 5px;"><strong>Route:</strong> ${safeText(routeName)}</div>
-              <div><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
@@ -508,7 +511,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             </td>
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
-              <div style="margin-top: 10px;"><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div style="margin-top: 10px;"><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
@@ -550,7 +553,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             <td style="border: none; text-align: right; width: 50%; vertical-align: top;">
               <div>Customers: All</div>
               <div style="margin-top: 5px;"><strong>Route:</strong> ${safeText(routeName)}</div>
-              <div><strong>Order Booker:</strong> ${safeText(bookerName || 'N/A')}</div>
+              <div><strong>Salesman:</strong> ${safeText(displaySalesman)}</div>
             </td>
           </tr>
         </table>
@@ -602,6 +605,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
         </div>
 
         <div className="space-y-3">
+          <SalesmanSelect value={selectedSalesman} onChange={setSelectedSalesman} />
           <div className="p-4 rounded-lg bg-muted/50">
             <div className="flex items-center gap-3 mb-2">
               <FileText className="h-5 w-5 text-primary" />
