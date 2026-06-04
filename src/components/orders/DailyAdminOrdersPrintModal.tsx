@@ -284,7 +284,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <td>${idx + 1}</td>
           <td>${safeText(item.productName)}${item.productCode ? ` - ${safeText(item.productCode)}` : ''}</td>
           <td>${packInfo}</td>
-          <td>${item.cartons} - ${item.boxes}</td>
+          <td>${item.cartons} - ${item.boxes} (${formatCartonDecimal(item.totalQuantity, item.product?.boxes_per_carton || 24)})</td>
           <td>${formatCurrencyForPrint(tradePrice)}</td>
           <td>${formatCurrencyForPrint(item.grossAmount)}</td>
         </tr>
@@ -353,7 +353,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
           <td>${safeText(item.shop?.address || 'N/A')}</td>
           <td>${safeText(item.routeName)}</td>
-          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes}</td>
+          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes} (${formatCartonDecimal((item.totalQuantity.cartons * 24) + item.totalQuantity.boxes, 24)})</td>
           <td>${formatCurrencyForPrint(item.grossAmount)}</td>
           <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
           <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
@@ -373,7 +373,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <td>${idx + 1}</td>
           <td>${safeText(product?.name || 'N/A')} - ${safeText(product?.product_code || '')}</td>
           <td>${packInfo}</td>
-          <td>${item.cartons} - ${item.boxes}</td>
+          <td>${item.cartons} - ${item.boxes} (${formatCartonDecimal(item.totalQuantity, item.product?.boxes_per_carton || 24)})</td>
           <td>${formatCurrencyForPrint(tradePrice)}</td>
           <td>${formatCurrencyForPrint(item.grossAmount)}</td>
         </tr>
@@ -581,7 +581,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               </div>
               <div className="text-center p-2 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Total Qty</p>
-                <p className="font-bold text-lg">{totals.totalCartons} Ctn - {totals.totalBoxes} Box</p>
+                <p className="font-bold text-lg">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({formatCartonDecimal((totals.totalCartons * 24) + totals.totalBoxes, 24)})</p>
               </div>
             </div>
           </div>
