@@ -74,6 +74,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
       orders: Order[]; 
       totalAmount: number; 
       totalQuantity: { cartons: number; boxes: number };
+      cartonDecimal: number;
       shopBalance: number;
       receivedAmount: number;
       totalDiscount: number;
@@ -87,6 +88,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
         orders: [],
         totalAmount: 0,
         totalQuantity: { cartons: 0, boxes: 0 },
+        cartonDecimal: 0,
         shopBalance: 0,
         receivedAmount: 0,
         totalDiscount: 0,
@@ -108,6 +110,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
         const boxes = item.quantity % boxesPerCarton;
         existing.totalQuantity.cartons += cartons;
         existing.totalQuantity.boxes += boxes;
+        existing.cartonDecimal += (item.quantity || 0) / boxesPerCarton;
         
         // Calculate gross (before discount) and discount
         const itemGross = item.unit_price * item.quantity;
