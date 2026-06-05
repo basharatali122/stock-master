@@ -22,16 +22,16 @@
     --primary: 152 55% 48%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft Mint */
-    --secondary: 152 40% 94%;
-    --secondary-foreground: 152 50% 22%;
+    /* Secondary - Soft Peach */
+    --secondary: 30 60% 93%;
+    --secondary-foreground: 24 60% 25%;
 
     /* Muted */
-    --muted: 150 15% 95%;
-    --muted-foreground: 200 12% 42%;
+    --muted: 30 30% 92%;
+    --muted-foreground: 24 12% 42%;
 
-    /* Accent - Warm Orange */
-    --accent: 152 55% 48%;
+    /* Accent - Light Orange */
+    --accent: 24 90% 58%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
