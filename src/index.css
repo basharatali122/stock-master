@@ -7,12 +7,12 @@
 @layer base {
   :root {
     /* Background & Foreground */
-    --background: 150 20% 98%;
-    --foreground: 200 25% 12%;
+    --background: 30 40% 97%;
+    --foreground: 24 25% 12%;
 
     /* Card surfaces */
-    --card: 0 0% 100%;
-    --card-foreground: 200 25% 12%;
+    --card: 30 60% 96%;
+    --card-foreground: 24 25% 12%;
 
     /* Popover */
     --popover: 0 0% 100%;
@@ -22,16 +22,16 @@
     --primary: 152 55% 48%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft Mint */
-    --secondary: 152 40% 94%;
-    --secondary-foreground: 152 50% 22%;
+    /* Secondary - Soft Peach */
+    --secondary: 30 60% 93%;
+    --secondary-foreground: 24 60% 25%;
 
     /* Muted */
-    --muted: 150 15% 95%;
-    --muted-foreground: 200 12% 42%;
+    --muted: 30 30% 92%;
+    --muted-foreground: 24 12% 42%;
 
-    /* Accent - Warm Orange */
-    --accent: 152 55% 48%;
+    /* Accent - Light Orange */
+    --accent: 24 90% 58%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -57,16 +57,16 @@
 
     --radius: 0.625rem;
 
-    /* Sidebar - Clean White Professional */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 200 25% 20%;
+    /* Sidebar - Light Orange Professional */
+    --sidebar-background: 30 60% 96%;
+    --sidebar-foreground: 24 25% 20%;
     --sidebar-primary: 152 55% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 152 55% 95%;
-    --sidebar-accent-foreground: 152 60% 25%;
-    --sidebar-border: 150 15% 90%;
+    --sidebar-accent: 30 70% 90%;
+    --sidebar-accent-foreground: 24 60% 25%;
+    --sidebar-border: 30 40% 88%;
     --sidebar-ring: 152 55% 48%;
-    --sidebar-muted: 200 12% 50%;
+    --sidebar-muted: 24 12% 50%;
 
     /* Chart Colors */
     --chart-1: 152 55% 48%;
