@@ -738,7 +738,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             </div>
             <div>
               <span className="text-muted-foreground">Total Qty:</span>
-              <span className="ml-2 font-medium">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({formatCartonDecimal((totals.totalCartons * (bookerBreakdown.defaultBpc || 24)) + totals.totalBoxes, bookerBreakdown.defaultBpc || 24)})</span>
+              <span className="ml-2 font-medium">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({bookerBreakdown.grandCartonsLabel})</span>
             </div>
           </div>
         </div>
