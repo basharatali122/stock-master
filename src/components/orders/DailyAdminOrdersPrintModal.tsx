@@ -74,6 +74,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
       orders: Order[]; 
       totalAmount: number; 
       totalQuantity: { cartons: number; boxes: number };
+      cartonDecimal: number;
       shopBalance: number;
       receivedAmount: number;
       totalDiscount: number;
@@ -87,6 +88,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
         orders: [],
         totalAmount: 0,
         totalQuantity: { cartons: 0, boxes: 0 },
+        cartonDecimal: 0,
         shopBalance: 0,
         receivedAmount: 0,
         totalDiscount: 0,
@@ -108,6 +110,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
         const boxes = item.quantity % boxesPerCarton;
         existing.totalQuantity.cartons += cartons;
         existing.totalQuantity.boxes += boxes;
+        existing.cartonDecimal += (item.quantity || 0) / boxesPerCarton;
         
         // Calculate gross (before discount) and discount
         const itemGross = item.unit_price * item.quantity;
@@ -191,8 +194,15 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
     const grossTotal = loadForm.reduce((sum, p) => sum + p.grossAmount, 0);
     const totalGross = billsSummary.reduce((sum, s) => sum + s.grossAmount, 0);
     const totalDiscount = billsSummary.reduce((sum, s) => sum + s.totalDiscount, 0);
+    const cartonDecimalSum = loadForm.reduce((sum, p) => {
+      const bpc = p.product?.boxes_per_carton && p.product.boxes_per_carton > 0 ? p.product.boxes_per_carton : 24;
+      return sum + (p.totalQuantity || 0) / bpc;
+    }, 0);
+    const c = Math.floor(cartonDecimalSum);
+    const f = Math.floor((cartonDecimalSum - c) * 100);
+    const cartonDecimalLabel = `${c}.${String(f).padStart(2, '0')}`;
     
-    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount };
+    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount, cartonDecimalLabel };
   }, [todayOrders, loadForm, billsSummary]);
 
   const displayDate = selectedDate;
@@ -328,7 +338,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${loadHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="3"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${formatCartonDecimal((totals.totalCartons * 24) + totals.totalBoxes, 24)})</td>
+            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
           </tr>
@@ -353,7 +363,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
           <td>${safeText(item.shop?.address || 'N/A')}</td>
           <td>${safeText(item.routeName)}</td>
-          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes} (${formatCartonDecimal((item.totalQuantity.cartons * 24) + item.totalQuantity.boxes, 24)})</td>
+          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes} (${(() => { const c = Math.floor(item.cartonDecimal); const f = Math.floor((item.cartonDecimal - c) * 100); return `${c}.${String(f).padStart(2, '0')}`; })()})</td>
           <td>${formatCurrencyForPrint(item.grossAmount)}</td>
           <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
           <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
@@ -422,7 +432,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${billsHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="5"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${formatCartonDecimal((totals.totalCartons * 24) + totals.totalBoxes, 24)})</td>
+            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
             <td>${formatCurrencyForPrint(totals.totalGross)}</td>
             <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
             <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
@@ -468,7 +478,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${loadHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="3"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${formatCartonDecimal((totals.totalCartons * 24) + totals.totalBoxes, 24)})</td>
+            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
           </tr>
@@ -581,7 +591,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               </div>
               <div className="text-center p-2 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Total Qty</p>
-                <p className="font-bold text-lg">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({formatCartonDecimal((totals.totalCartons * 24) + totals.totalBoxes, 24)})</p>
+                <p className="font-bold text-lg">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({totals.cartonDecimalLabel})</p>
               </div>
             </div>
           </div>

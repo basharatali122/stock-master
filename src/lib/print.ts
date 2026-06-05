@@ -36,6 +36,27 @@ export const formatCartonDecimal = (totalBoxes: number, boxesPerCarton: number =
   return `${cartons}.${String(frac).padStart(2, '0')}`;
 };
 
+/**
+ * Sums cartons across items with mixed boxes-per-carton values.
+ * For each item, contributes (quantity / boxes_per_carton). Returns the total as
+ * "X.YY" where X is the integer carton count and YY is the truncated fractional part.
+ * Use this for aggregated rows (totals, booker summaries) where products have
+ * different boxes-per-carton — a single bpc cannot represent the true carton count.
+ */
+export const formatCartonsMixed = (
+  items: Array<{ quantity: number; boxes_per_carton?: number | null }>
+): string => {
+  let sum = 0;
+  for (const it of items) {
+    const bpc = (it.boxes_per_carton && it.boxes_per_carton > 0) ? it.boxes_per_carton : 24;
+    const qty = Math.max(0, Math.floor(it.quantity || 0));
+    sum += qty / bpc;
+  }
+  const cartons = Math.floor(sum);
+  const frac = Math.floor((sum - cartons) * 100);
+  return `${cartons}.${String(frac).padStart(2, '0')}`;
+};
+
 // Company information for printing
 export const COMPANY_INFO = {
   name: 'ALAM TRADER',
