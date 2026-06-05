@@ -194,8 +194,15 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
     const grossTotal = loadForm.reduce((sum, p) => sum + p.grossAmount, 0);
     const totalGross = billsSummary.reduce((sum, s) => sum + s.grossAmount, 0);
     const totalDiscount = billsSummary.reduce((sum, s) => sum + s.totalDiscount, 0);
+    const cartonDecimalSum = loadForm.reduce((sum, p) => {
+      const bpc = p.product?.boxes_per_carton && p.product.boxes_per_carton > 0 ? p.product.boxes_per_carton : 24;
+      return sum + (p.totalQuantity || 0) / bpc;
+    }, 0);
+    const c = Math.floor(cartonDecimalSum);
+    const f = Math.floor((cartonDecimalSum - c) * 100);
+    const cartonDecimalLabel = `${c}.${String(f).padStart(2, '0')}`;
     
-    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount };
+    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount, cartonDecimalLabel };
   }, [todayOrders, loadForm, billsSummary]);
 
   const displayDate = selectedDate;
