@@ -7,31 +7,31 @@
 @layer base {
   :root {
     /* Background & Foreground */
-    --background: 30 40% 97%;
-    --foreground: 24 25% 12%;
+    --background: 28 70% 93%;
+    --foreground: 24 40% 12%;
 
     /* Card surfaces */
-    --card: 30 60% 96%;
-    --card-foreground: 24 25% 12%;
+    --card: 28 80% 88%;
+    --card-foreground: 24 40% 12%;
 
     /* Popover */
-    --popover: 0 0% 100%;
-    --popover-foreground: 200 25% 12%;
+    --popover: 30 60% 96%;
+    --popover-foreground: 24 40% 12%;
 
     /* Primary - Light Fresh Green */
     --primary: 152 55% 48%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Soft Peach */
-    --secondary: 30 60% 93%;
-    --secondary-foreground: 24 60% 25%;
+    --secondary: 28 70% 85%;
+    --secondary-foreground: 24 60% 20%;
 
     /* Muted */
-    --muted: 30 30% 92%;
-    --muted-foreground: 24 12% 42%;
+    --muted: 28 60% 85%;
+    --muted-foreground: 24 30% 35%;
 
-    /* Accent - Light Orange */
-    --accent: 24 90% 58%;
+    /* Accent - Orange */
+    --accent: 24 95% 55%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -51,22 +51,22 @@
     --info-foreground: 0 0% 100%;
 
     /* Border & Input */
-    --border: 150 15% 88%;
-    --input: 150 15% 88%;
+    --border: 28 50% 78%;
+    --input: 28 50% 78%;
     --ring: 152 55% 48%;
 
     --radius: 0.625rem;
 
-    /* Sidebar - Light Orange Professional */
-    --sidebar-background: 30 60% 96%;
-    --sidebar-foreground: 24 25% 20%;
+    /* Sidebar - Full Orange */
+    --sidebar-background: 28 80% 88%;
+    --sidebar-foreground: 24 40% 12%;
     --sidebar-primary: 152 55% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 30 70% 90%;
-    --sidebar-accent-foreground: 24 60% 25%;
-    --sidebar-border: 30 40% 88%;
+    --sidebar-accent: 28 85% 80%;
+    --sidebar-accent-foreground: 24 40% 12%;
+    --sidebar-border: 28 50% 75%;
     --sidebar-ring: 152 55% 48%;
-    --sidebar-muted: 24 12% 50%;
+    --sidebar-muted: 24 25% 40%;
 
     /* Chart Colors */
     --chart-1: 152 55% 48%;
@@ -77,15 +77,15 @@
 
     /* Gradient tokens */
     --gradient-primary: linear-gradient(135deg, hsl(152 55% 48%), hsl(152 55% 40%));
-    --gradient-accent: linear-gradient(135deg, hsl(152 55% 55%), hsl(152 55% 42%));
+    --gradient-accent: linear-gradient(135deg, hsl(28 85% 60%), hsl(24 95% 55%));
     --gradient-success: linear-gradient(135deg, hsl(152 55% 48%), hsl(152 55% 60%));
-    --gradient-hero: linear-gradient(135deg, hsl(152 55% 50%), hsl(190 65% 50%));
+    --gradient-hero: linear-gradient(135deg, hsl(28 80% 60%), hsl(38 90% 55%));
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(200 25% 12% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(200 25% 12% / 0.08), 0 2px 4px -2px hsl(200 25% 12% / 0.08);
-    --shadow-lg: 0 10px 15px -3px hsl(200 25% 12% / 0.1), 0 4px 6px -4px hsl(200 25% 12% / 0.08);
-    --shadow-card: 0 1px 3px 0 hsl(200 25% 12% / 0.08), 0 1px 2px -1px hsl(200 25% 12% / 0.06);
+    --shadow-sm: 0 1px 2px 0 hsl(24 40% 12% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(24 40% 12% / 0.08), 0 2px 4px -2px hsl(24 40% 12% / 0.08);
+    --shadow-lg: 0 10px 15px -3px hsl(24 40% 12% / 0.1), 0 4px 6px -4px hsl(24 40% 12% / 0.08);
+    --shadow-card: 0 1px 3px 0 hsl(24 40% 12% / 0.08), 0 1px 2px -1px hsl(24 40% 12% / 0.06);
   }
 
   .dark {
