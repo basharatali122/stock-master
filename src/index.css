@@ -57,16 +57,16 @@
 
     --radius: 0.625rem;
 
-    /* Sidebar - Clean White Professional */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 200 25% 20%;
+    /* Sidebar - Light Orange Professional */
+    --sidebar-background: 30 60% 96%;
+    --sidebar-foreground: 24 25% 20%;
     --sidebar-primary: 152 55% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 152 55% 95%;
-    --sidebar-accent-foreground: 152 60% 25%;
-    --sidebar-border: 150 15% 90%;
+    --sidebar-accent: 30 70% 90%;
+    --sidebar-accent-foreground: 24 60% 25%;
+    --sidebar-border: 30 40% 88%;
     --sidebar-ring: 152 55% 48%;
-    --sidebar-muted: 200 12% 50%;
+    --sidebar-muted: 24 12% 50%;
 
     /* Chart Colors */
     --chart-1: 152 55% 48%;
