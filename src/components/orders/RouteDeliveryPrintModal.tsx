@@ -272,7 +272,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
       <tr>
         <td style="text-align:center;">${i + 1}</td>
         <td>${safeText(b.name)}</td>
-        <td style="text-align:center;">${formatCartonDecimal(b.totalBoxes, bookerBreakdown.defaultBpc)}</td>
+        <td style="text-align:center;">${b.cartonsLabel}</td>
         <td style="text-align:center;">${b.totalBoxes}</td>
         <td style="text-align:right;">${b.percent.toFixed(2)}%</td>
       </tr>
