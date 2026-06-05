@@ -294,14 +294,14 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             ${rowsHtml}
             <tr style="font-weight:bold; background:#e5e5e5;">
               <td colspan="2" style="text-align:left;">Grand Total</td>
-              <td style="text-align:center;">${formatCartonDecimal(bookerBreakdown.grandTotalBoxes, bookerBreakdown.defaultBpc)}</td>
+              <td style="text-align:center;">${bookerBreakdown.grandCartonsLabel}</td>
               <td style="text-align:center;">${bookerBreakdown.grandTotalBoxes}</td>
               <td style="text-align:right;">100.00%</td>
             </tr>
           </tbody>
         </table>
         <div style="font-size:10px; color:#666; margin-top:4px;">
-          * Cartons shown in decimal form (e.g. 1.27 = 1 full carton + partial). Based on ${bookerBreakdown.defaultBpc} boxes/carton.
+          * Cartons shown in decimal form (e.g. 1.27 = 1 full carton + 27% of a carton). Each product uses its own boxes-per-carton.
         </div>
       </div>
     `;
