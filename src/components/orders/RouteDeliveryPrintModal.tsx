@@ -234,28 +234,37 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
 
   // Booker-wise box/carton breakdown with % share
   const bookerBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; totalBoxes: number; cartons: number; remBoxes: number }>();
+    const map = new Map<string, { name: string; totalBoxes: number; cartonDecimal: number }>();
     let grandTotalBoxes = 0;
+    let grandCartonDecimal = 0;
     orders.forEach(order => {
       const bookerId = order.booker_id || 'unknown';
       const name = order.booker_name || selectedSalesman || 'Unknown';
-      const existing = map.get(bookerId) || { name, totalBoxes: 0, cartons: 0, remBoxes: 0 };
+      const existing = map.get(bookerId) || { name, totalBoxes: 0, cartonDecimal: 0 };
       order.order_items?.forEach(item => {
-        existing.totalBoxes += item.quantity || 0;
-        grandTotalBoxes += item.quantity || 0;
+        const qty = item.quantity || 0;
+        const product = products.find(p => p.id === item.product_id);
+        const bpc = product?.boxes_per_carton && product.boxes_per_carton > 0 ? product.boxes_per_carton : 24;
+        existing.totalBoxes += qty;
+        existing.cartonDecimal += qty / bpc;
+        grandTotalBoxes += qty;
+        grandCartonDecimal += qty / bpc;
       });
       map.set(bookerId, existing);
     });
-    // Use a representative boxes_per_carton (most common) for breakdown display
-    const defaultBpc = products[0]?.boxes_per_carton || 24;
+    const fmt = (v: number) => {
+      const c = Math.floor(v);
+      const f = Math.floor((v - c) * 100);
+      return `${c}.${String(f).padStart(2, '0')}`;
+    };
     const rows = Array.from(map.values()).map(b => ({
       ...b,
-      cartons: Math.floor(b.totalBoxes / defaultBpc),
-      remBoxes: b.totalBoxes % defaultBpc,
+      cartonsLabel: fmt(b.cartonDecimal),
       percent: grandTotalBoxes > 0 ? (b.totalBoxes / grandTotalBoxes) * 100 : 0,
     })).sort((a, b) => b.totalBoxes - a.totalBoxes);
-    return { rows, grandTotalBoxes, defaultBpc };
+    return { rows, grandTotalBoxes, grandCartonsLabel: fmt(grandCartonDecimal) };
   }, [orders, products, selectedSalesman]);
+
 
   const bookerBreakdownHtml = () => {
     if (bookerBreakdown.rows.length === 0) return '';
