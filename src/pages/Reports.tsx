@@ -794,7 +794,7 @@ const Reports: React.FC = () => {
                   <tr key={b.booker_id} className="border-b border-border/50">
                     <td className="py-3 pr-4 font-medium">{b.booker_name}</td>
                     <td className="py-3 pr-4 text-center">{b.orders}</td>
-                    <td className="py-3 pr-4 text-center font-semibold text-primary">{formatCartonDecimal(b.total_boxes, b.avg_bpc)}</td>
+                    <td className="py-3 pr-4 text-center font-semibold text-primary">{(() => { const c = Math.floor(b.carton_decimal); const f = Math.floor((b.carton_decimal - c) * 100); return `${c}.${String(f).padStart(2, '0')}`; })()}</td>
                     <td className="py-3 pr-4 text-center">{b.remainder_boxes}</td>
                     <td className="py-3 pr-4 text-center">{b.total_boxes}</td>
                     <td className="py-3 pr-4 text-right font-semibold">{b.percent.toFixed(2)}%</td>
@@ -804,9 +804,10 @@ const Reports: React.FC = () => {
                   <td className="py-3 pr-4">Grand Total</td>
                   <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.orders, 0)}</td>
                   <td className="py-3 pr-4 text-center">{(() => {
-                    const totalBoxes = bookerCartons.reduce((s, b) => s + b.total_boxes, 0);
-                    const avgBpc = bookerCartons.length > 0 ? Math.round(bookerCartons.reduce((s, b) => s + b.avg_bpc, 0) / bookerCartons.length) : 24;
-                    return formatCartonDecimal(totalBoxes, avgBpc);
+                    const sum = bookerCartons.reduce((s, b) => s + b.carton_decimal, 0);
+                    const c = Math.floor(sum);
+                    const f = Math.floor((sum - c) * 100);
+                    return `${c}.${String(f).padStart(2, '0')}`;
                   })()}</td>
                   <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.remainder_boxes, 0)}</td>
                   <td className="py-3 pr-4 text-center">{bookerCartons.reduce((s, b) => s + b.total_boxes, 0)}</td>
