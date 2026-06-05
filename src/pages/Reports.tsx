@@ -300,11 +300,11 @@ const Reports: React.FC = () => {
             .in('user_id', bookerIds2);
           const nameMap = new Map(bookerProfiles?.map(p => [p.user_id, p.full_name]) || []);
 
-          const agg = new Map<string, { boxes: number; orders: number; bpcSum: number; bpcCount: number }>();
+          const agg = new Map<string, { boxes: number; orders: number; bpcSum: number; bpcCount: number; cartonDecimal: number }>();
           let grandBoxes = 0;
           monthOrders.forEach((o: any) => {
             const bid = o.booker_id || 'unknown';
-            const existing = agg.get(bid) || { boxes: 0, orders: 0, bpcSum: 0, bpcCount: 0 };
+            const existing = agg.get(bid) || { boxes: 0, orders: 0, bpcSum: 0, bpcCount: 0, cartonDecimal: 0 };
             existing.orders += 1;
             (o.order_items || []).forEach((it: any) => {
               const qty = it.quantity || 0;
@@ -313,6 +313,7 @@ const Reports: React.FC = () => {
               const bpc = it.products?.boxes_per_carton || 24;
               existing.bpcSum += bpc;
               existing.bpcCount += 1;
+              existing.cartonDecimal += qty / bpc;
             });
             agg.set(bid, existing);
           });
@@ -326,6 +327,7 @@ const Reports: React.FC = () => {
               cartons: Math.floor(d.boxes / avgBpc),
               remainder_boxes: d.boxes % avgBpc,
               avg_bpc: avgBpc,
+              carton_decimal: d.cartonDecimal,
               orders: d.orders,
               percent: grandBoxes > 0 ? (d.boxes / grandBoxes) * 100 : 0,
             };
