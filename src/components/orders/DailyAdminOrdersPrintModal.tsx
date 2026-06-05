@@ -363,7 +363,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <td><strong>${safeText(item.shop?.name || 'N/A')}</strong><br/><small>${safeText(item.shop?.shop_code || '')}</small></td>
           <td>${safeText(item.shop?.address || 'N/A')}</td>
           <td>${safeText(item.routeName)}</td>
-          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes} (${formatCartonDecimal((item.totalQuantity.cartons * 24) + item.totalQuantity.boxes, 24)})</td>
+          <td>${item.totalQuantity.cartons} - ${item.totalQuantity.boxes} (${(() => { const c = Math.floor(item.cartonDecimal); const f = Math.floor((item.cartonDecimal - c) * 100); return `${c}.${String(f).padStart(2, '0')}`; })()})</td>
           <td>${formatCurrencyForPrint(item.grossAmount)}</td>
           <td style="color: ${hasDiscount ? '#166534' : 'inherit'};">${hasDiscount ? formatCurrencyForPrint(item.totalDiscount) : '-'}</td>
           <td><strong>${formatCurrencyForPrint(item.totalAmount)}</strong></td>
