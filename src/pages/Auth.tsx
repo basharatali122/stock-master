@@ -136,7 +136,7 @@ const Auth: React.FC = () => {
     <div className="min-h-screen bg-background">
       <div className="flex min-h-screen">
         {/* Left Panel - Branding */}
-        <div className="hidden w-1/2 bg-gradient-to-br from-slate-50 via-white to-emerald-50/40 lg:flex lg:flex-col lg:justify-between lg:p-12 border-r border-slate-100">
+        <div className="hidden w-1/2 bg-gradient-to-br from-orange-50 via-orange-50/80 to-orange-100/40 lg:flex lg:flex-col lg:justify-between lg:p-12 border-r border-orange-100">
           <div>
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600/10">
