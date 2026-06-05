@@ -43,6 +43,7 @@ interface BookerCartonStat {
   cartons: number;
   remainder_boxes: number;
   avg_bpc: number;
+  carton_decimal: number;
   orders: number;
   percent: number;
 }
