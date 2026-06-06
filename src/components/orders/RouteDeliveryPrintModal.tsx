@@ -222,15 +222,25 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
   const totals = useMemo(() => {
     const totalInvoice = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
     const totalReceived = orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
-    const totalCartons = loadForm.reduce((sum, g) => sum + g.groupTotal.cartons, 0);
-    const totalBoxes = loadForm.reduce((sum, g) => sum + g.groupTotal.boxes, 0);
     const grossTotal = loadForm.reduce((sum, g) => sum + g.groupTotal.amount, 0);
     const totalQuantity = loadForm.reduce((sum, g) => sum + g.groupTotal.quantity, 0);
     const totalGross = billsSummary.reduce((sum, s) => sum + s.grossAmount, 0);
     const totalDiscount = billsSummary.reduce((sum, s) => sum + s.totalDiscount, 0);
-    
-    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalQuantity, totalGross, totalDiscount };
+    // Carton totals must use each product's own boxes_per_carton — summing per-group
+    // floors/remainders across mixed bpcs gives nonsensical "X cartons + Y boxes" rows.
+    const cartonDecimalSum = loadForm.reduce((sum, g) => {
+      const bpc = g.boxesPerCarton && g.boxesPerCarton > 0 ? g.boxesPerCarton : 24;
+      return sum + (g.groupTotal.quantity || 0) / bpc;
+    }, 0);
+    const totalCartons = Math.floor(cartonDecimalSum);
+    const f = Math.floor((cartonDecimalSum - totalCartons) * 100);
+    const cartonDecimalLabel = `${totalCartons}.${String(f).padStart(2, '0')}`;
+    const totalBoxes = totalQuantity;
+    const totalQtyLabel = `${cartonDecimalLabel} Ctn / ${totalQuantity} Box`;
+
+    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalQuantity, totalGross, totalDiscount, cartonDecimalLabel, totalQtyLabel };
   }, [orders, loadForm, billsSummary]);
+
 
   // Booker-wise box/carton breakdown with % share
   const bookerBreakdown = useMemo(() => {
@@ -478,8 +488,9 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
           <tr style="font-weight: bold; background: #e5e5e5; border-top: 2px solid #000;">
             <td colspan="3"><strong>Grand Total</strong></td>
             <td style="text-align: center;">${totals.totalQuantity}</td>
-            <td style="text-align: center;">${totals.totalCartons}</td>
-            <td style="text-align: center;">${totals.totalBoxes}</td>
+            <td style="text-align: center;">${totals.cartonDecimalLabel}</td>
+            <td style="text-align: center;">-</td>
+
             <td style="text-align: right;">${totals.grossTotal.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           </tr>
         </tbody>
@@ -653,8 +664,9 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
           <tr style="font-weight: bold; background: #e5e5e5; border-top: 2px solid #000;">
             <td colspan="3"><strong>Grand Total</strong></td>
             <td style="text-align: center;">${totals.totalQuantity}</td>
-            <td style="text-align: center;">${totals.totalCartons}</td>
-            <td style="text-align: center;">${totals.totalBoxes}</td>
+            <td style="text-align: center;">${totals.cartonDecimalLabel}</td>
+            <td style="text-align: center;">-</td>
+
             <td style="text-align: right;">${totals.grossTotal.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           </tr>
         </tbody>
@@ -738,7 +750,7 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
             </div>
             <div>
               <span className="text-muted-foreground">Total Qty:</span>
-              <span className="ml-2 font-medium">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({bookerBreakdown.grandCartonsLabel})</span>
+              <span className="ml-2 font-medium">{totals.totalQtyLabel}</span>
             </div>
           </div>
         </div>

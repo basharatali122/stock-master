@@ -189,21 +189,25 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
   const totals = useMemo(() => {
     const totalInvoice = todayOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
     const totalReceived = todayOrders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
-    const totalCartons = loadForm.reduce((sum, p) => sum + p.cartons, 0);
-    const totalBoxes = loadForm.reduce((sum, p) => sum + p.boxes, 0);
     const grossTotal = loadForm.reduce((sum, p) => sum + p.grossAmount, 0);
     const totalGross = billsSummary.reduce((sum, s) => sum + s.grossAmount, 0);
     const totalDiscount = billsSummary.reduce((sum, s) => sum + s.totalDiscount, 0);
+    // Sum cartons using each product's own boxes_per_carton (mixed bpc safe)
     const cartonDecimalSum = loadForm.reduce((sum, p) => {
       const bpc = p.product?.boxes_per_carton && p.product.boxes_per_carton > 0 ? p.product.boxes_per_carton : 24;
       return sum + (p.totalQuantity || 0) / bpc;
     }, 0);
-    const c = Math.floor(cartonDecimalSum);
-    const f = Math.floor((cartonDecimalSum - c) * 100);
-    const cartonDecimalLabel = `${c}.${String(f).padStart(2, '0')}`;
-    
-    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalGross, totalDiscount, cartonDecimalLabel };
+    const totalBoxesQty = loadForm.reduce((sum, p) => sum + (p.totalQuantity || 0), 0);
+    const totalCartons = Math.floor(cartonDecimalSum);
+    const f = Math.floor((cartonDecimalSum - totalCartons) * 100);
+    const cartonDecimalLabel = `${totalCartons}.${String(f).padStart(2, '0')}`;
+    // Total box label: full cartons can't be re-decomposed across mixed bpcs,
+    // so show the raw aggregate as "<decimal> Ctn / <total qty> Box".
+    const totalQtyLabel = `${cartonDecimalLabel} Ctn / ${totalBoxesQty} Box`;
+
+    return { totalInvoice, totalReceived, totalCartons, totalBoxes: totalBoxesQty, grossTotal, totalGross, totalDiscount, cartonDecimalLabel, totalQtyLabel };
   }, [todayOrders, loadForm, billsSummary]);
+
 
   const displayDate = selectedDate;
 
@@ -338,7 +342,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${loadHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="3"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
+            <td>${totals.totalQtyLabel}</td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
           </tr>
@@ -432,7 +436,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${billsHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="5"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
+            <td>${totals.totalQtyLabel}</td>
             <td>${formatCurrencyForPrint(totals.totalGross)}</td>
             <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
             <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
@@ -478,7 +482,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${loadHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="3"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
+            <td>${totals.totalQtyLabel}</td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
           </tr>
@@ -591,7 +595,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               </div>
               <div className="text-center p-2 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Total Qty</p>
-                <p className="font-bold text-lg">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({totals.cartonDecimalLabel})</p>
+                <p className="font-bold text-lg">{totals.totalQtyLabel}</p>
               </div>
             </div>
           </div>
