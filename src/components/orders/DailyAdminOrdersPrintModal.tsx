@@ -342,7 +342,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${loadHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="3"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
+            <td>${totals.totalQtyLabel}</td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
           </tr>
@@ -436,7 +436,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${billsHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="5"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
+            <td>${totals.totalQtyLabel}</td>
             <td>${formatCurrencyForPrint(totals.totalGross)}</td>
             <td style="color: #166534;">${formatCurrencyForPrint(totals.totalDiscount)}</td>
             <td><strong>${formatCurrencyForPrint(totals.totalInvoice)}</strong></td>
@@ -482,7 +482,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           ${loadHtml}
           <tr style="font-weight: bold; background: #e5e5e5;">
             <td colspan="3"><strong>TOTAL</strong></td>
-            <td>${totals.totalCartons} - ${totals.totalBoxes} (${totals.cartonDecimalLabel})</td>
+            <td>${totals.totalQtyLabel}</td>
             <td></td>
             <td>${formatCurrencyForPrint(totals.grossTotal)}</td>
           </tr>
@@ -595,7 +595,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
               </div>
               <div className="text-center p-2 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Total Qty</p>
-                <p className="font-bold text-lg">{totals.totalCartons} Ctn - {totals.totalBoxes} Box ({totals.cartonDecimalLabel})</p>
+                <p className="font-bold text-lg">{totals.totalQtyLabel}</p>
               </div>
             </div>
           </div>
