@@ -488,8 +488,9 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
           <tr style="font-weight: bold; background: #e5e5e5; border-top: 2px solid #000;">
             <td colspan="3"><strong>Grand Total</strong></td>
             <td style="text-align: center;">${totals.totalQuantity}</td>
-            <td style="text-align: center;">${totals.totalCartons}</td>
-            <td style="text-align: center;">${totals.totalBoxes}</td>
+            <td style="text-align: center;">${totals.cartonDecimalLabel}</td>
+            <td style="text-align: center;">-</td>
+
             <td style="text-align: right;">${totals.grossTotal.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           </tr>
         </tbody>
