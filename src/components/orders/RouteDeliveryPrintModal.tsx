@@ -222,15 +222,25 @@ export const RouteDeliveryPrintModal: React.FC<RouteDeliveryPrintModalProps> = (
   const totals = useMemo(() => {
     const totalInvoice = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
     const totalReceived = orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
-    const totalCartons = loadForm.reduce((sum, g) => sum + g.groupTotal.cartons, 0);
-    const totalBoxes = loadForm.reduce((sum, g) => sum + g.groupTotal.boxes, 0);
     const grossTotal = loadForm.reduce((sum, g) => sum + g.groupTotal.amount, 0);
     const totalQuantity = loadForm.reduce((sum, g) => sum + g.groupTotal.quantity, 0);
     const totalGross = billsSummary.reduce((sum, s) => sum + s.grossAmount, 0);
     const totalDiscount = billsSummary.reduce((sum, s) => sum + s.totalDiscount, 0);
-    
-    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalQuantity, totalGross, totalDiscount };
+    // Carton totals must use each product's own boxes_per_carton — summing per-group
+    // floors/remainders across mixed bpcs gives nonsensical "X cartons + Y boxes" rows.
+    const cartonDecimalSum = loadForm.reduce((sum, g) => {
+      const bpc = g.boxesPerCarton && g.boxesPerCarton > 0 ? g.boxesPerCarton : 24;
+      return sum + (g.groupTotal.quantity || 0) / bpc;
+    }, 0);
+    const totalCartons = Math.floor(cartonDecimalSum);
+    const f = Math.floor((cartonDecimalSum - totalCartons) * 100);
+    const cartonDecimalLabel = `${totalCartons}.${String(f).padStart(2, '0')}`;
+    const totalBoxes = totalQuantity;
+    const totalQtyLabel = `${cartonDecimalLabel} Ctn / ${totalQuantity} Box`;
+
+    return { totalInvoice, totalReceived, totalCartons, totalBoxes, grossTotal, totalQuantity, totalGross, totalDiscount, cartonDecimalLabel, totalQtyLabel };
   }, [orders, loadForm, billsSummary]);
+
 
   // Booker-wise box/carton breakdown with % share
   const bookerBreakdown = useMemo(() => {
