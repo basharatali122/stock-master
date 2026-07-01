@@ -664,15 +664,37 @@ const Orders: React.FC = () => {
         const effectiveDiscountPercent = originalProductPrice > 0 && item.unit_price < originalProductPrice
           ? Math.round(((originalProductPrice - item.unit_price) / originalProductPrice) * 100)
           : (item.discount_applied || 0);
+        // Calculate discounted total from original price and discount
+        const discountedTotal = item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100);
         return `
         <tr>
           <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
           <td>${safeText(item.quantity)}</td>
-          <td>${formatCurrencyForPrint(item.unit_price)}</td>
+          <td>${formatCurrencyForPrint(originalProductPrice)}</td>
           <td>${safeText(effectiveDiscountPercent)}%</td>
-          <td>${formatCurrencyForPrint(item.total_price)}</td>
+          <td>${formatCurrencyForPrint(discountedTotal)}</td>
         </tr>
       `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
+
+      const totalItemDiscounts = (order.order_items || []).reduce((sum, item) => {
+        const originalProductPrice = item.products?.price || item.unit_price;
+        const effectiveDiscountPercent = originalProductPrice > 0 && item.unit_price < originalProductPrice
+          ? ((originalProductPrice - item.unit_price) / originalProductPrice) * 100
+          : (item.discount_applied || 0);
+        return sum + (item.quantity * originalProductPrice * effectiveDiscountPercent / 100);
+      }, 0);
+
+      const subtotal = (order.order_items || []).reduce((sum, item) => {
+        const originalProductPrice = item.products?.price || item.unit_price;
+        const effectiveDiscountPercent = originalProductPrice > 0 && item.unit_price < originalProductPrice
+          ? ((originalProductPrice - item.unit_price) / originalProductPrice) * 100
+          : (item.discount_applied || 0);
+        return sum + (item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100));
+      }, 0);
+
+      const totalDiscountsHtml = totalItemDiscounts > 0 ? `
+        <div class="summary-row" style="color: #166534;"><span>Total Discounts:</span><span>- ${formatCurrencyForPrint(totalItemDiscounts)}</span></div>
+      ` : '';
 
       const content = `
         <div class="header">
@@ -702,10 +724,11 @@ const Orders: React.FC = () => {
           <tbody>${itemsHtml}</tbody>
         </table>
         <div class="summary">
-          <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
+          <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(subtotal)}</span></div>
+          ${totalDiscountsHtml}
           <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>
-          <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(order.total_amount - order.paid_amount)}</span></div>
-          <div class="summary-row total"><span>Grand Total:</span><span>${formatCurrencyForPrint(order.total_amount)}</span></div>
+          <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(Math.max(0, subtotal - order.paid_amount))}</span></div>
+          <div class="summary-row total"><span>Grand Total:</span><span>${formatCurrencyForPrint(subtotal)}</span></div>
         </div>
       `;
       printContent(content, `Order ${order.order_number}`);

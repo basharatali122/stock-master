@@ -267,7 +267,6 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       const adjustment = adjustedItems[item.id];
       // Always use the adjusted/discounted price - this is what was saved to DB
       const displayPrice = adjustment?.adjustedPrice ?? item.unit_price;
-      const displayTotal = adjustment?.adjustedTotal ?? item.total_price;
       const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
       
       // Calculate effective discount percentage from price difference
@@ -277,22 +276,57 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
         ? Math.round(((originalProductPrice - displayPrice) / originalProductPrice) * 100)
         : (item.discount_applied || 0);
       
-      // Show the discounted price on the bill (not the original price)
+      // Show the original price in Unit Price column, discounted total in Total column
+      const discountedTotal = item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100);
+      
       return `
       <tr>
         <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
         <td>${safeText(item.quantity)}</td>
-        <td>${formatCurrencyForPrint(displayPrice)}</td>
+        <td>${formatCurrencyForPrint(originalProductPrice)}</td>
         <td>${safeText(effectiveDiscountPercent)}%</td>
-        <td>${formatCurrencyForPrint(displayTotal)}</td>
+        <td>${formatCurrencyForPrint(discountedTotal)}</td>
       </tr>
     `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
+
+    // Calculate total item-level discounts to show on bill
+    const totalItemDiscounts = (order.order_items || []).reduce((sum, item) => {
+      const adjustment = adjustedItems[item.id];
+      const displayPrice = adjustment?.adjustedPrice ?? item.unit_price;
+      const originalProductPrice = item.products?.price || item.unit_price;
+      const effectiveDiscountPercent = originalProductPrice > 0 && displayPrice < originalProductPrice
+        ? ((originalProductPrice - displayPrice) / originalProductPrice) * 100
+        : (item.discount_applied || 0);
+      return sum + (item.quantity * originalProductPrice * effectiveDiscountPercent / 100);
+    }, 0);
+
     const discountHtml = discountAmount > 0 ? `
       <div class="summary-row discount">
         <span>Special Discount${discountType === 'percentage' ? ` (${discountValue}%)` : ''}:</span>
         <span>- ${formatCurrencyForPrint(discountAmount)}</span>
       </div>
     ` : '';
+
+    const totalDiscountsHtml = totalItemDiscounts > 0 ? `
+      <div class="summary-row discount">
+        <span>Total Discounts:</span>
+        <span>- ${formatCurrencyForPrint(totalItemDiscounts)}</span>
+      </div>
+    ` : '';
+
+    // Calculate printed subtotal from discounted item totals to ensure discounts are reflected
+    const printedSubtotal = (order.order_items || []).reduce((sum, item) => {
+      const adjustment = adjustedItems[item.id];
+      const displayPrice = adjustment?.adjustedPrice ?? item.unit_price;
+      const originalProductPrice = item.products?.price || item.unit_price;
+      const effectiveDiscountPercent = originalProductPrice > 0 && displayPrice < originalProductPrice
+        ? ((originalProductPrice - displayPrice) / originalProductPrice) * 100
+        : (item.discount_applied || 0);
+      return sum + (item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100));
+    }, 0);
+
+    // Final total shown on the bill uses the printed subtotal (which already reflects item discounts)
+    const displayFinalTotal = printedSubtotal - discountAmount;
 
     const content = `
       <div class="header">
@@ -324,11 +358,12 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       </table>
       <div class="summary">
         <div class="summary-row" style="background: #e3f2fd; font-weight: bold;"><span>Total Boxes/Items:</span><span>${totalBoxes}</span></div>
-        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(adjustedSubtotal)}</span></div>
+        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(printedSubtotal)}</span></div>
+        ${totalDiscountsHtml}
         ${discountHtml}
         <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>
-        <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(Math.max(0, finalTotal - order.paid_amount))}</span></div>
-        <div class="summary-row total"><span>Grand Total:</span><span>${formatCurrencyForPrint(finalTotal)}</span></div>
+        <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(Math.max(0, displayFinalTotal - order.paid_amount))}</span></div>
+        <div class="summary-row total"><span>Grand Total:</span><span>${formatCurrencyForPrint(displayFinalTotal)}</span></div>
       </div>
     `;
     printContent(content, `Order ${order.order_number}`);
