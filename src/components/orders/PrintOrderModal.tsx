@@ -267,7 +267,6 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       const adjustment = adjustedItems[item.id];
       // Always use the adjusted/discounted price - this is what was saved to DB
       const displayPrice = adjustment?.adjustedPrice ?? item.unit_price;
-      const displayTotal = adjustment?.adjustedTotal ?? item.total_price;
       const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
       
       // Calculate effective discount percentage from price difference
@@ -278,7 +277,7 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
         : (item.discount_applied || 0);
       
       // Show the original price in Unit Price column, discounted total in Total column
-      const discountedTotal = item.quantity * displayPrice;
+      const discountedTotal = item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100);
       
       return `
       <tr>
