@@ -326,6 +326,9 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       return sum + (item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100));
     }, 0);
 
+    // Final total shown on the bill uses the printed subtotal (which already reflects item discounts)
+    const displayFinalTotal = printedSubtotal - discountAmount;
+
     const content = `
       <div class="header">
         <h1>${safeText(COMPANY_INFO.name)}</h1>
