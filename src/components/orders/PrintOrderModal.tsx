@@ -315,6 +315,17 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       </div>
     ` : '';
 
+    // Calculate printed subtotal from discounted item totals to ensure discounts are reflected
+    const printedSubtotal = (order.order_items || []).reduce((sum, item) => {
+      const adjustment = adjustedItems[item.id];
+      const displayPrice = adjustment?.adjustedPrice ?? item.unit_price;
+      const originalProductPrice = item.products?.price || item.unit_price;
+      const effectiveDiscountPercent = originalProductPrice > 0 && displayPrice < originalProductPrice
+        ? ((originalProductPrice - displayPrice) / originalProductPrice) * 100
+        : (item.discount_applied || 0);
+      return sum + (item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100));
+    }, 0);
+
     const content = `
       <div class="header">
         <h1>${safeText(COMPANY_INFO.name)}</h1>
