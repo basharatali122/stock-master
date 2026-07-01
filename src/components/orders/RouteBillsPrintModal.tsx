@@ -36,6 +36,7 @@ interface RouteBillsPrintModalProps {
 
 export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteBillsPrintModalProps) => {
   const [selectedSalesman, setSelectedSalesman] = useState<string>('');
+  const [selectedBooker, setSelectedBooker] = useState<string>('');
   const totals = useMemo(() => {
     const totalAmount = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
     const totalPaid = orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
@@ -121,6 +122,9 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
             ` : ''}
             <tr style="background: transparent;">
               <td colspan="2" style="border: none; padding: 3px 0; font-size: 12px;"><strong>Salesman:</strong> ${safeText(selectedSalesman || order.booker_name || 'N/A')}</td>
+            </tr>
+            <tr style="background: transparent;">
+              <td colspan="2" style="border: none; padding: 3px 0; font-size: 12px;"><strong>Order Booker:</strong> ${safeText(selectedBooker || order.booker_name || 'N/A')}</td>
             </tr>
           </table>
           
@@ -214,6 +218,7 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
 
         <div className="space-y-4">
           <SalesmanSelect value={selectedSalesman} onChange={setSelectedSalesman} />
+          <SalesmanSelect value={selectedBooker} onChange={setSelectedBooker} label="Order Booker" />
           {/* Summary */}
           <div className="rounded-lg bg-muted/50 p-4 space-y-3">
             <div className="flex items-center gap-3">

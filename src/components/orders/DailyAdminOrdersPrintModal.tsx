@@ -61,9 +61,12 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
   onClose,
 }) => {
   const [selectedSalesman, setSelectedSalesman] = useState<string>('');
-  const salesmanLine = selectedSalesman
-    ? `<div style="margin-top: 5px;"><strong>Salesman:</strong> ${selectedSalesman}</div>`
-    : '';
+  const [selectedBooker, setSelectedBooker] = useState<string>('');
+  const salesmanLine = [
+    selectedSalesman ? `<div style="margin-top: 5px;"><strong>Salesman:</strong> ${selectedSalesman}</div>` : '',
+    selectedBooker ? `<div style="margin-top: 3px;"><strong>Order Booker:</strong> ${selectedBooker}</div>` : '',
+  ].join('');
+  const bookerInline = selectedBooker ? `<br/><strong>Order Booker:</strong> ${selectedBooker}` : '';
   // Use the pre-filtered orders directly (already filtered by date in parent)
   const todayOrders = orders;
 
@@ -317,7 +320,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
               <strong>Type:</strong> Admin Orders<br/>
-              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}
+              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}${bookerInline}
             </td>
             <td style="border: none; text-align: right;">
               <strong>Date:</strong> ${safeText(displayDate)}<br/>
@@ -406,7 +409,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
               <strong>Type:</strong> Admin Orders<br/>
-              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}
+              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}${bookerInline}
             </td>
             <td style="border: none; text-align: right;">
               <strong>Date:</strong> ${safeText(displayDate)}<br/>
@@ -457,7 +460,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
           <tr style="background: transparent;">
             <td style="border: none; text-align: left;">
               <strong>Type:</strong> Admin Orders<br/>
-              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}
+              <strong>Routes:</strong> ${safeText(routesList)}<br/>${selectedSalesman ? `<strong>Salesman:</strong> ${selectedSalesman}` : ''}${bookerInline}
             </td>
             <td style="border: none; text-align: right;">
               <strong>Date:</strong> ${safeText(displayDate)}<br/>
@@ -524,6 +527,7 @@ export const DailyAdminOrdersPrintModal: React.FC<DailyAdminOrdersPrintModalProp
         ) : (
           <div className="space-y-3">
             <SalesmanSelect value={selectedSalesman} onChange={setSelectedSalesman} />
+            <SalesmanSelect value={selectedBooker} onChange={setSelectedBooker} label="Order Booker" />
             {/* Routes breakdown */}
             <div className="p-3 rounded-lg bg-muted/30 mb-4">
               <p className="text-sm font-medium mb-2">Routes Breakdown:</p>
