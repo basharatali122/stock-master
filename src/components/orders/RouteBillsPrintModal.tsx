@@ -49,6 +49,8 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
     const billsHtml = orders.map((order, index) => {
       // Calculate total boxes/quantity for this order
       const totalBoxes = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      const itemsSubtotal = order.order_items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0;
+      const billDiscount = Math.max(0, itemsSubtotal - (order.total_amount || 0));
       
       const itemsHtml = order.order_items?.map(item => {
         const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
@@ -126,8 +128,14 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
               </tr>
               <tr style="background: transparent;">
                 <td style="border: none; padding: 3px 0;"><strong>Subtotal:</strong></td>
-                <td style="border: none; padding: 3px 0; text-align: right;">${formatCurrencyForPrint(order.total_amount)}</td>
+                <td style="border: none; padding: 3px 0; text-align: right;">${formatCurrencyForPrint(itemsSubtotal)}</td>
               </tr>
+              ${billDiscount > 0 ? `
+              <tr style="background: transparent; color: #166534;">
+                <td style="border: none; padding: 3px 0;"><strong>Discount:</strong></td>
+                <td style="border: none; padding: 3px 0; text-align: right;">- ${formatCurrencyForPrint(billDiscount)}</td>
+              </tr>
+              ` : ''}
               <tr style="background: transparent;">
                 <td style="border: none; padding: 3px 0;">Paid Amount:</td>
                 <td style="border: none; padding: 3px 0; text-align: right;">${formatCurrencyForPrint(order.paid_amount)}</td>
