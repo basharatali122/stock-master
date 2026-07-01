@@ -149,10 +149,16 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
                 <td style="border: none; padding: 3px 0;"><strong>Subtotal:</strong></td>
                 <td style="border: none; padding: 3px 0; text-align: right;">${formatCurrencyForPrint(itemsSubtotal)}</td>
               </tr>
-              ${billDiscount > 0 ? `
+              ${totalItemDiscounts > 0 ? `
               <tr style="background: transparent; color: #166534;">
-                <td style="border: none; padding: 3px 0;"><strong>Discount:</strong></td>
-                <td style="border: none; padding: 3px 0; text-align: right;">- ${formatCurrencyForPrint(billDiscount)}</td>
+                <td style="border: none; padding: 3px 0;"><strong>Total Discounts:</strong></td>
+                <td style="border: none; padding: 3px 0; text-align: right;">- ${formatCurrencyForPrint(totalItemDiscounts)}</td>
+              </tr>
+              ` : ''}
+              ${specialDiscount > 0 ? `
+              <tr style="background: transparent; color: #166534;">
+                <td style="border: none; padding: 3px 0;"><strong>Special Discount:</strong></td>
+                <td style="border: none; padding: 3px 0; text-align: right;">- ${formatCurrencyForPrint(specialDiscount)}</td>
               </tr>
               ` : ''}
               <tr style="background: transparent;">
