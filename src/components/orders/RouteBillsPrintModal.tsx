@@ -49,26 +49,45 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
     const billsHtml = orders.map((order, index) => {
       // Calculate total boxes/quantity for this order
       const totalBoxes = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-      const itemsSubtotal = order.order_items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0;
-      const billDiscount = Math.max(0, itemsSubtotal - (order.total_amount || 0));
       
       const itemsHtml = order.order_items?.map(item => {
         const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
-        // Calculate effective discount percentage from the original product price
+        // Use the original product price as the list unit price on the bill
         const originalProductPrice = item.products?.price || item.unit_price;
         const effectiveDiscountPercent = originalProductPrice > 0 && item.unit_price < originalProductPrice
           ? Math.round(((originalProductPrice - item.unit_price) / originalProductPrice) * 100)
           : (item.discount_applied || 0);
+        // Calculate discounted total from original price and discount
+        const discountedTotal = item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100);
         return `
           <tr>
             <td style="text-align: left;">${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
             <td style="text-align: center;">${safeText(item.quantity)}</td>
-            <td style="text-align: right;">${formatCurrencyForPrint(item.unit_price)}</td>
+            <td style="text-align: right;">${formatCurrencyForPrint(originalProductPrice)}</td>
             <td style="text-align: center;">${safeText(effectiveDiscountPercent)}%</td>
-            <td style="text-align: right;">${formatCurrencyForPrint(item.total_price)}</td>
+            <td style="text-align: right;">${formatCurrencyForPrint(discountedTotal)}</td>
           </tr>
         `;
       }).join('') || '<tr><td colspan="5">No items</td></tr>';
+
+      // Per-item discounted totals and total discount amount
+      const itemsSubtotal = order.order_items?.reduce((sum, item) => {
+        const originalProductPrice = item.products?.price || item.unit_price;
+        const effectiveDiscountPercent = originalProductPrice > 0 && item.unit_price < originalProductPrice
+          ? ((originalProductPrice - item.unit_price) / originalProductPrice) * 100
+          : (item.discount_applied || 0);
+        return sum + (item.quantity * originalProductPrice * (1 - effectiveDiscountPercent / 100));
+      }, 0) || 0;
+
+      const totalItemDiscounts = order.order_items?.reduce((sum, item) => {
+        const originalProductPrice = item.products?.price || item.unit_price;
+        const effectiveDiscountPercent = originalProductPrice > 0 && item.unit_price < originalProductPrice
+          ? ((originalProductPrice - item.unit_price) / originalProductPrice) * 100
+          : (item.discount_applied || 0);
+        return sum + (item.quantity * originalProductPrice * effectiveDiscountPercent / 100);
+      }, 0) || 0;
+
+      const specialDiscount = Math.max(0, itemsSubtotal - (order.total_amount || 0));
 
       const pageBreak = index < orders.length - 1 ? 'page-break-after: always;' : '';
 
