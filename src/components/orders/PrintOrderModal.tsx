@@ -359,12 +359,12 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
       </table>
       <div class="summary">
         <div class="summary-row" style="background: #e3f2fd; font-weight: bold;"><span>Total Boxes/Items:</span><span>${totalBoxes}</span></div>
-        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(adjustedSubtotal)}</span></div>
+        <div class="summary-row"><span>Subtotal:</span><span>${formatCurrencyForPrint(printedSubtotal)}</span></div>
         ${totalDiscountsHtml}
         ${discountHtml}
         <div class="summary-row"><span>Paid Amount:</span><span>${formatCurrencyForPrint(order.paid_amount)}</span></div>
-        <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(Math.max(0, finalTotal - order.paid_amount))}</span></div>
-        <div class="summary-row total"><span>Grand Total:</span><span>${formatCurrencyForPrint(finalTotal)}</span></div>
+        <div class="summary-row"><span>Credit/Pending:</span><span>${formatCurrencyForPrint(Math.max(0, displayFinalTotal - order.paid_amount))}</span></div>
+        <div class="summary-row total"><span>Grand Total:</span><span>${formatCurrencyForPrint(displayFinalTotal)}</span></div>
       </div>
     `;
     printContent(content, `Order ${order.order_number}`);
