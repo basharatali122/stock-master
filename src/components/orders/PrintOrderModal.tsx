@@ -277,20 +277,41 @@ export const PrintOrderModal = memo(({ order, onClose, onOrderUpdated }: PrintOr
         ? Math.round(((originalProductPrice - displayPrice) / originalProductPrice) * 100)
         : (item.discount_applied || 0);
       
-      // Show the discounted price on the bill (not the original price)
+      // Show the original price in Unit Price column, discounted total in Total column
+      const discountedTotal = item.quantity * displayPrice;
+      
       return `
       <tr>
         <td>${safeText(productCode)}${safeText(item.products?.name || 'N/A')}</td>
         <td>${safeText(item.quantity)}</td>
-        <td>${formatCurrencyForPrint(displayPrice)}</td>
+        <td>${formatCurrencyForPrint(originalProductPrice)}</td>
         <td>${safeText(effectiveDiscountPercent)}%</td>
-        <td>${formatCurrencyForPrint(displayTotal)}</td>
+        <td>${formatCurrencyForPrint(discountedTotal)}</td>
       </tr>
     `;}).join('') || '<tr><td colspan="5">No items</td></tr>';
+
+    // Calculate total item-level discounts to show on bill
+    const totalItemDiscounts = (order.order_items || []).reduce((sum, item) => {
+      const adjustment = adjustedItems[item.id];
+      const displayPrice = adjustment?.adjustedPrice ?? item.unit_price;
+      const originalProductPrice = item.products?.price || item.unit_price;
+      const effectiveDiscountPercent = originalProductPrice > 0 && displayPrice < originalProductPrice
+        ? ((originalProductPrice - displayPrice) / originalProductPrice) * 100
+        : (item.discount_applied || 0);
+      return sum + (item.quantity * originalProductPrice * effectiveDiscountPercent / 100);
+    }, 0);
+
     const discountHtml = discountAmount > 0 ? `
       <div class="summary-row discount">
         <span>Special Discount${discountType === 'percentage' ? ` (${discountValue}%)` : ''}:</span>
         <span>- ${formatCurrencyForPrint(discountAmount)}</span>
+      </div>
+    ` : '';
+
+    const totalDiscountsHtml = totalItemDiscounts > 0 ? `
+      <div class="summary-row discount">
+        <span>Total Discounts:</span>
+        <span>- ${formatCurrencyForPrint(totalItemDiscounts)}</span>
       </div>
     ` : '';
 
