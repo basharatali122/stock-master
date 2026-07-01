@@ -49,6 +49,8 @@ export const RouteBillsPrintModal = memo(({ routeName, orders, onClose }: RouteB
     const billsHtml = orders.map((order, index) => {
       // Calculate total boxes/quantity for this order
       const totalBoxes = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      const itemsSubtotal = order.order_items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0;
+      const billDiscount = Math.max(0, itemsSubtotal - (order.total_amount || 0));
       
       const itemsHtml = order.order_items?.map(item => {
         const productCode = item.products?.product_code ? `[${item.products.product_code}] ` : '';
