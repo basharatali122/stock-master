@@ -129,12 +129,12 @@ export function useOrders(isAdmin: boolean, userId: string | undefined, dateRang
           .contains('routes.active_days', [today])
           .order('name')
           .limit(500),
-        // Fetch only active products with needed fields
+        // Fetch all active products (including out-of-stock) so print/summary
+        // calculations always have boxes_per_carton available.
         supabase
           .from('products')
           .select('id, name, product_code, price, discount_percentage, stock_quantity, boxes_per_carton, brand, pack_type')
           .eq('is_active', true)
-          .gt('stock_quantity', 0) // Only products in stock
           .order('name')
           .limit(500)
       ]);
