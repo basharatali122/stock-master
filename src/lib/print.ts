@@ -59,11 +59,11 @@ export const formatCartonsMixed = (
 
 // Company information for printing
 export const COMPANY_INFO = {
-  name: 'ALAM TRADER',
-  address: 'Hamza Town, Near Bhatti Hospital, Bypass Kasur',
-  phone1: '0321-4480088',
+  name: 'BHATTI TRADER',
+  address: 'Kot Ghulam Muhammad, Near Sardar Marriage Hall, Kasur',
+  phone1: '0304-4928366',
   phone2: '',
-  contactLine: 'Prop: MEHAR M. SALEEM AKBAR | Ph: 0321-4480088',
+  contactLine: 'Prop: HUSNAIN BHATTI | Ph: 0304-4928366',
 };
 
 export const printContent = (content: string, title: string) => {
