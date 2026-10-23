@@ -1,3 +1,3 @@
-- [ ] Add supplied logo only to all printed documents, top-left.
-- [ ] Import COUNTY products from the two supplied price sheets with per-box rates and packing, without inventing stock.
-- [ ] Replace old launch branding with BHATTI TRADER and verify.
+- [x] Add supplied logo only to all printed documents, top-left; verified loaded on an admin report.
+- [x] Import 54 COUNTY products from both supplied price sheets with per-box TP/net purchase rates, source packing, and zero initial stock; five tests passed and catalog read back through admin UI.
+- [x] Replace old favicon/launch asset and metadata with BHATTI TRADER; verified login and title. Existing installed shortcuts may retain the old cached icon until re-added.
