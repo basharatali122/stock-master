@@ -24,7 +24,7 @@ interface Product {
 }
 
 const categories = ['All', 'Candy', 'Nimko', 'Cake', 'Bunty', 'Chocolate', 'Toffees', 'Biscuits', 'Wafer', 'Lollipop', 'Bubble Gum', 'Other'];
-const brands = ['Onest Food', 'U.S Food', 'R.K Product', 'COUNTY', 'Other'];
+const brands = ['County Food', 'Rehmat Food', 'Kiran Food', 'Shaheen Food', 'Bakery', 'Other'];
 const packTypes = ['Family Pack', 'Half Pack', 'Mini Half Pack', 'Snack Pack', 'Tikki Pack'];
 
 const Products: React.FC = () => {
