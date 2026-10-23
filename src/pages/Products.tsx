@@ -23,8 +23,8 @@ interface Product {
   created_at: string;
 }
 
-const categories = ['All', 'Candy', 'Nimko', 'Cake', 'Bunty', 'Chocolate', 'Toffees', 'Other'];
-const brands = ['Onest Food', 'U.S Food', 'R.K Product', 'Other'];
+const categories = ['All', 'Candy', 'Nimko', 'Cake', 'Bunty', 'Chocolate', 'Toffees', 'Biscuits', 'Wafer', 'Lollipop', 'Bubble Gum', 'Other'];
+const brands = ['Onest Food', 'U.S Food', 'R.K Product', 'COUNTY', 'Other'];
 const packTypes = ['Family Pack', 'Half Pack', 'Mini Half Pack', 'Snack Pack', 'Tikki Pack'];
 
 const Products: React.FC = () => {

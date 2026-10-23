@@ -1,4 +1,5 @@
 // Print utility for generating printable reports
+import printLogo from '@/assets/bhatti-trader-print-logo.png.asset.json';
 
 /**
  * Escapes HTML special characters to prevent XSS attacks
@@ -95,6 +96,10 @@ export const printContent = (content: string, title: string) => {
           font-size: 12px;
         }
         .header {
+          position: relative;
+          min-height: 100px;
+          padding-left: 110px !important;
+          padding-right: 110px !important;
           text-align: center;
           margin-bottom: 20px;
           padding-bottom: 15px;
@@ -103,6 +108,14 @@ export const printContent = (content: string, title: string) => {
         .header h1 {
           font-size: 24px;
           margin-bottom: 5px;
+        }
+        .print-company-logo {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 90px;
+          height: 90px;
+          object-fit: contain;
         }
         .header .company-address {
           color: #444;
@@ -208,7 +221,27 @@ export const printContent = (content: string, title: string) => {
         <p>Generated on ${generatedDate} | ${escapeHtml(COMPANY_INFO.name)} Distribution System</p>
       </div>
       <script>
-        window.onload = function() {
+        const headers = document.querySelectorAll('.header');
+        if (!headers.length) {
+          const header = document.createElement('div');
+          header.className = 'header';
+          const name = document.createElement('h1');
+          name.textContent = ${JSON.stringify(COMPANY_INFO.name)};
+          header.appendChild(name);
+          document.body.prepend(header);
+        }
+        document.querySelectorAll('.header').forEach(function(header) {
+          const logo = document.createElement('img');
+          logo.className = 'print-company-logo';
+          logo.src = ${JSON.stringify(new URL(printLogo.url, window.location.origin).href)};
+          logo.alt = 'BHATTI TRADER';
+          header.prepend(logo);
+        });
+        window.onload = async function() {
+          await Promise.all(Array.from(document.images).map(function(image) {
+            return image.decode().catch(function() {});
+          }));
+          await document.fonts.ready;
           window.print();
         }
       </script>
