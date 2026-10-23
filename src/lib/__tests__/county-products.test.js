@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import products from '../../data/county-products-october-2026.json';
 
-const find = (name: string) => products.find(product => product.name === name);
+const find = (name) => products.find(product => product.name === name);
 
 describe('COUNTY October 2026 source price sheets', () => {
   test('imports all 54 distinct source rows', () => {
