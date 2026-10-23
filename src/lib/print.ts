@@ -233,7 +233,7 @@ export const printContent = (content: string, title: string) => {
         document.querySelectorAll('.header').forEach(function(header) {
           const logo = document.createElement('img');
           logo.className = 'print-company-logo';
-          logo.src = ${JSON.stringify(new URL(printLogo.url, window.location.origin).href)};
+          logo.src = ${JSON.stringify(new URL(printLogo.url, 'https://albibid.lovable.app').href)};
           logo.alt = 'BHATTI TRADER';
           header.prepend(logo);
         });
