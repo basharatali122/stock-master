@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import DataTable from '@/components/ui/DataTable';
 import { Plus, Search, Eye, RotateCcw, Loader2, X, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { printContent, formatCurrencyForPrint, getStatusBadgeClass } from '@/lib/print';
+import { printContent, formatCurrencyForPrint, getStatusBadgeClass, COMPANY_INFO, safeText } from '@/lib/print';
 
 interface Return {
   id: string;
@@ -266,7 +266,7 @@ const Returns: React.FC = () => {
   const printReturn = (ret: Return) => {
     const content = `
       <div class="header">
-        <h1>AR Traders</h1>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
         <p>Return Receipt</p>
       </div>
       <div class="info-grid">
@@ -301,7 +301,7 @@ const Returns: React.FC = () => {
 
     const content = `
       <div class="header">
-        <h1>AR Traders</h1>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
         <p>Returns Report</p>
       </div>
       <div class="info-grid">

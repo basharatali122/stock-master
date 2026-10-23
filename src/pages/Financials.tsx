@@ -4,7 +4,7 @@ import DataTable from '@/components/ui/DataTable';
 import StatCard from '@/components/ui/StatCard';
 import { Search, DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet, Users, Loader2, Printer, Edit, Plus, History } from 'lucide-react';
 import { toast } from 'sonner';
-import { printContent, formatCurrencyForPrint } from '@/lib/print';
+import { printContent, formatCurrencyForPrint, COMPANY_INFO, safeText } from '@/lib/print';
 import { financialSchema, advanceSchema, validateInput } from '@/lib/validation';
 import {
   Dialog,
@@ -486,7 +486,7 @@ const Financials: React.FC = () => {
 
     const content = `
       <div class="header">
-        <h1>AR Traders</h1>
+        <h1>${safeText(COMPANY_INFO.name)}</h1>
         <p>Financial Report</p>
       </div>
       <div class="info-grid">
