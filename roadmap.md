@@ -1,0 +1,3 @@
+- [ ] Add supplied logo only to all printed documents, top-left.
+- [ ] Import COUNTY products from the two supplied price sheets with per-box rates and packing, without inventing stock.
+- [ ] Replace old launch branding with BHATTI TRADER and verify.
