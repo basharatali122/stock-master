@@ -23,7 +23,7 @@ interface Product {
   created_at: string;
 }
 
-const categories = ['All', 'Candy', 'Nimko', 'Cake', 'Bunty', 'Chocolate', 'Toffees', 'Biscuits', 'Wafer', 'Lollipop', 'Bubble Gum', 'Other'];
+const categories = ['All', 'Peanut', 'Dkar Anda', 'Imli', 'Paper', 'Zombie', 'Other'];
 const brands = ['County Food', 'Rehmat Food', 'Kiran Food', 'Shaheen Food', 'Bakery', 'Other'];
 const packTypes = ['Family Pack', 'Half Pack', 'Mini Half Pack', 'Snack Pack', 'Tikki Pack'];
 
