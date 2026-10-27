@@ -1,5 +1,6 @@
 // Print utility for generating printable reports
 import printLogo from '@/assets/bhatti-trader-print-logo.png.asset.json';
+import brandMark from '@/assets/bhatti-brand-mark.png.asset.json';
 
 /**
  * Escapes HTML special characters to prevent XSS attacks
@@ -116,6 +117,15 @@ export const printContent = (content: string, title: string) => {
           width: 90px;
           height: 90px;
           object-fit: contain;
+        }
+        .print-company-logo-right {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          width: 56px;
+          height: 56px;
+          object-fit: contain;
+          opacity: 0.95;
         }
         .header .company-address {
           color: #444;
@@ -236,6 +246,11 @@ export const printContent = (content: string, title: string) => {
           logo.src = ${JSON.stringify(new URL(printLogo.url, 'https://albibid.lovable.app').href)};
           logo.alt = 'BHATTI TRADER';
           header.prepend(logo);
+          const brandMarkImg = document.createElement('img');
+          brandMarkImg.className = 'print-company-logo-right';
+          brandMarkImg.src = ${JSON.stringify(new URL(brandMark.url, 'https://albibid.lovable.app').href)};
+          brandMarkImg.alt = 'Brand';
+          header.appendChild(brandMarkImg);
         });
         window.onload = async function() {
           await Promise.all(Array.from(document.images).map(function(image) {
