@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/ui/StatCard';
 import DataTable from '@/components/ui/DataTable';
 import BookingSupplyRate from '@/components/dashboard/BookingSupplyRate';
+import ProfitSummary from '@/components/dashboard/ProfitSummary';
 import {
   DollarSign,
   ShoppingCart,
@@ -416,6 +417,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Profit (admin only - uses purchase rates) */}
+      {isAdmin && <ProfitSummary />}
 
       {/* Booker Daily Sales Breakdown */}
       {isAdmin && bookerDailySales.length > 0 && (

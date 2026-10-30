@@ -530,6 +530,15 @@ const Orders: React.FC = () => {
         }
       }
 
+      // Admin: remove recorded payments for this order so the order can be deleted
+      if (isAdmin) {
+        const { error: payError } = await supabase
+          .from('payment_history')
+          .delete()
+          .eq('order_id', order.id);
+        if (payError) throw payError;
+      }
+
       // Delete order items
       const { error: itemsError } = await supabase
         .from('order_items')
@@ -849,10 +858,11 @@ const Orders: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (item: Order) => {
-        // Order bookers can delete their own orders (not delivered/cancelled)
-        const canDelete = !isAdmin && 
-          item.booker_id === user?.id && 
-          !['delivered', 'cancelled'].includes(item.status?.toLowerCase());
+        // Admin can delete any order; order bookers only their own (not delivered/cancelled)
+        const canDelete = isAdmin || (
+          item.booker_id === user?.id &&
+          !['delivered', 'cancelled'].includes(item.status?.toLowerCase())
+        );
         
         return (
           <OrderActions
