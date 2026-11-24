@@ -218,9 +218,9 @@ const BookingSupplyRate: React.FC = () => {
               <p className="text-2xl font-bold text-foreground">{stats.totalBookings}</p>
               <p className="text-xs text-muted-foreground">Total Bookings</p>
             </div>
-            <div className="rounded-lg bg-green-500/10 p-4 text-center">
-              <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-500" />
-              <p className="text-2xl font-bold text-green-500">{stats.deliveredSameDay}</p>
+            <div className="rounded-lg bg-success/10 p-4 text-center">
+              <CheckCircle className="h-5 w-5 mx-auto mb-2 text-success" />
+              <p className="text-2xl font-bold text-success">{stats.deliveredSameDay}</p>
               <p className="text-xs text-muted-foreground">Same Day</p>
             </div>
             <div className="rounded-lg bg-accent/10 p-4 text-center">
@@ -228,19 +228,19 @@ const BookingSupplyRate: React.FC = () => {
               <p className="text-2xl font-bold text-accent">{stats.deliveredNextDay}</p>
               <p className="text-xs text-muted-foreground">Next Day</p>
             </div>
-            <div className="rounded-lg bg-blue-500/10 p-4 text-center">
-              <Clock className="h-5 w-5 mx-auto mb-2 text-blue-500" />
-              <p className="text-2xl font-bold text-blue-500">{stats.deliveredLater}</p>
+            <div className="rounded-lg bg-info/10 p-4 text-center">
+              <Clock className="h-5 w-5 mx-auto mb-2 text-info" />
+              <p className="text-2xl font-bold text-info">{stats.deliveredLater}</p>
               <p className="text-xs text-muted-foreground">Later</p>
             </div>
-            <div className="rounded-lg bg-yellow-500/10 p-4 text-center">
-              <Clock className="h-5 w-5 mx-auto mb-2 text-yellow-500" />
-              <p className="text-2xl font-bold text-yellow-500">{stats.pendingDelivery}</p>
+            <div className="rounded-lg bg-warning/10 p-4 text-center">
+              <Clock className="h-5 w-5 mx-auto mb-2 text-warning" />
+              <p className="text-2xl font-bold text-warning">{stats.pendingDelivery}</p>
               <p className="text-xs text-muted-foreground">Pending</p>
             </div>
-            <div className="rounded-lg bg-red-500/10 p-4 text-center">
-              <Package className="h-5 w-5 mx-auto mb-2 text-red-500" />
-              <p className="text-2xl font-bold text-red-500">{stats.cancelled}</p>
+            <div className="rounded-lg bg-destructive/10 p-4 text-center">
+              <Package className="h-5 w-5 mx-auto mb-2 text-destructive" />
+              <p className="text-2xl font-bold text-destructive">{stats.cancelled}</p>
               <p className="text-xs text-muted-foreground">Cancelled</p>
             </div>
           </div>

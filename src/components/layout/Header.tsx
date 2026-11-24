@@ -32,7 +32,8 @@ const Header: React.FC<HeaderProps> = memo(function Header({ onMenuClick }) {
         </button>
         
         <div className="hidden md:block">
-          <h2 className="text-lg font-semibold text-foreground">BHATTI TRADER</h2>
+          <h2 className="text-base font-semibold text-foreground">Distribution Management System</h2>
+          <p className="text-xs text-muted-foreground">BHATTI TRADER</p>
         </div>
       </div>
 

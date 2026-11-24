@@ -29,25 +29,25 @@ const StatCard: React.FC<StatCardProps> = ({
 
   const iconBgClasses = {
     default: 'bg-primary/10 text-primary',
-    primary: 'bg-primary-foreground/20 text-primary-foreground',
-    accent: 'bg-accent-foreground/20 text-accent-foreground',
-    success: 'bg-success-foreground/20 text-success-foreground',
+    primary: 'bg-primary/10 text-primary',
+    accent: 'bg-info/10 text-info',
+    success: 'bg-success/10 text-success',
     warning: 'bg-warning/20 text-warning',
   };
 
   const textClasses = {
     default: 'text-foreground',
-    primary: 'text-primary-foreground',
-    accent: 'text-accent-foreground',
-    success: 'text-success-foreground',
+    primary: 'text-foreground',
+    accent: 'text-foreground',
+    success: 'text-foreground',
     warning: 'text-foreground',
   };
 
   const subtextClasses = {
     default: 'text-muted-foreground',
-    primary: 'text-primary-foreground/80',
-    accent: 'text-accent-foreground/80',
-    success: 'text-success-foreground/80',
+    primary: 'text-muted-foreground',
+    accent: 'text-muted-foreground',
+    success: 'text-muted-foreground',
     warning: 'text-muted-foreground',
   };
 

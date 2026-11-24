@@ -92,7 +92,7 @@ const DashboardLayout: React.FC = memo(function DashboardLayout() {
       {/* Main Content */}
       <div className="lg:pl-64">
         <Header onMenuClick={openMobileMenu} />
-        <main className="p-4 md:p-6">
+        <main className="mx-auto w-full max-w-[1440px] p-4 md:p-8">
           <Outlet />
         </main>
       </div>

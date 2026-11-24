@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Package, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react';
 import { loginSchema, registerSchema, validateInput } from '@/lib/validation';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -136,48 +136,50 @@ const Auth: React.FC = () => {
     <div className="min-h-screen bg-background">
       <div className="flex min-h-screen">
         {/* Left Panel - Branding */}
-        <div className="hidden w-1/2 bg-gradient-to-br from-orange-300 via-orange-200 to-orange-100 lg:flex lg:flex-col lg:justify-between lg:p-12 border-r border-orange-300">
+        <div className="brand-panel hidden w-1/2 lg:flex lg:flex-col lg:justify-between lg:p-12">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600/10">
-                <Package className="h-7 w-7 text-emerald-700" />
-              </div>
+              <img
+                src="/bhatti-favicon.png"
+                alt="Bhatti Trader logo"
+                className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/20"
+              />
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">BHATTI TRADER</h1>
-                <p className="text-sm text-slate-500">Distribution Management System</p>
+                <h1 className="text-2xl font-bold tracking-tight text-white">BHATTI TRADER</h1>
+                <p className="text-sm text-white/60">Distribution Management System</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-6">
-            <h2 className="text-4xl font-bold leading-tight text-slate-800">
+            <h2 className="text-4xl font-bold leading-tight text-white">
               Streamline Your Distribution Operations
             </h2>
-            <p className="text-lg text-slate-500">
+            <p className="text-lg text-white/65">
               Manage routes, orders, inventory, and financials all in one place.
               Built for efficiency, designed for growth.
             </p>
             <div className="grid grid-cols-2 gap-4 pt-4">
-              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
-                <p className="text-3xl font-bold text-emerald-700">{stats.shops.toLocaleString()}</p>
-                <p className="text-sm text-slate-500">Active Shops</p>
+              <div className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 p-4">
+                <p className="text-3xl font-bold text-sidebar-primary">{stats.shops.toLocaleString()}</p>
+                <p className="text-sm text-white/55">Active Shops</p>
               </div>
-              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
-                <p className="text-3xl font-bold text-emerald-700">{stats.routes}</p>
-                <p className="text-sm text-slate-500">Routes Covered</p>
+              <div className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 p-4">
+                <p className="text-3xl font-bold text-sidebar-primary">{stats.routes}</p>
+                <p className="text-sm text-white/55">Routes Covered</p>
               </div>
-              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
-                <p className="text-3xl font-bold text-emerald-700">{stats.orders.toLocaleString()}</p>
-                <p className="text-sm text-slate-500">Total Orders</p>
+              <div className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 p-4">
+                <p className="text-3xl font-bold text-sidebar-primary">{stats.orders.toLocaleString()}</p>
+                <p className="text-sm text-white/55">Total Orders</p>
               </div>
-              <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-slate-100 p-4 shadow-sm">
-                <p className="text-3xl font-bold text-emerald-700">{stats.deliveryRate}%</p>
-                <p className="text-sm text-slate-500">Delivery Rate</p>
+              <div className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 p-4">
+                <p className="text-3xl font-bold text-sidebar-primary">{stats.deliveryRate}%</p>
+                <p className="text-sm text-white/55">Delivery Rate</p>
               </div>
             </div>
           </div>
 
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-white/40">
             © 2025 BHATTI TRADER. All rights reserved.
           </p>
         </div>
@@ -187,9 +189,11 @@ const Auth: React.FC = () => {
           <div className="mx-auto w-full max-w-md">
             {/* Mobile Logo */}
             <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                <Package className="h-6 w-6 text-primary-foreground" />
-              </div>
+              <img
+                src="/bhatti-favicon.png"
+                alt="Bhatti Trader logo"
+                className="h-10 w-10 rounded-lg object-cover"
+              />
               <h1 className="text-xl font-bold text-foreground">BHATTI TRADER</h1>
             </div>
 

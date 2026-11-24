@@ -88,11 +88,13 @@ const Sidebar: React.FC = memo(function Sidebar() {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Package className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
+          <img
+            src="/bhatti-favicon.png"
+            alt="Bhatti Trader logo"
+            className="h-10 w-10 rounded-lg object-cover ring-1 ring-sidebar-border"
+          />
           <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground">BHATTI TRADER</h1>
+            <h1 className="text-base font-bold tracking-tight text-sidebar-foreground">BHATTI TRADER</h1>
             <p className="text-xs text-sidebar-muted">Distribution System</p>
           </div>
         </div>
